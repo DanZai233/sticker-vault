@@ -37,7 +37,6 @@ test('Windows startup uses current-user Electron login settings with the exact e
     enabled: true,
     path: exe,
     args: ['--background'],
-    name: 'StickerVault',
   });
   assert.equal((await c.set(false)).enabled, false);
 });

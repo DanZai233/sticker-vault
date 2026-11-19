@@ -137,7 +137,6 @@ class StartupControl {
           enabled,
           path: this.execPath,
           args: ['--background'],
-          name: 'StickerVault',
         });
       else this.app.setLoginItemSettings({ openAtLogin: enabled });
       return this.get();

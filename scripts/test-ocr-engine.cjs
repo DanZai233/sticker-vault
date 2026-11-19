@@ -16,15 +16,9 @@ let root, runner, extractor;
   await app.whenReady();
   try {
     const packaged = process.env.STICKER_PACKAGED_RESOURCES;
-    const svg = path.join(root, 'sample.svg');
-    await fs.writeFile(
-      svg,
-      '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300"><rect width="1200" height="300" fill="white"/><text x="40" y="180" font-family="Arial,sans-serif" font-size="96" fill="black">HELLO STICKER</text></svg>',
-    );
+    // Fixed raster fixture avoids differences in the host OS's fallback fonts.
     extractor = new OcrImageExtractor();
-    const png = await extractor.read(svg);
-    const input = path.join(root, 'sample.png');
-    await fs.writeFile(input, png);
+    const input = path.join(__dirname, '../test/fixtures/ocr-text.png');
     runner = new OcrRunner({
       modelsPath: packaged
         ? path.join(packaged, 'ocr-data')
