@@ -67,12 +67,12 @@ function render() {
   const sort = $('#sort').value;
   items.sort(
     filter === 'recent' || sort === 'used'
-      ? (a, b) => (b.lastUsedAt || 0) - (a.lastUsedAt || 0)
+      ? (a, b) => stickerOrderTime(b, true) - stickerOrderTime(a, true)
       : sort === 'name'
         ? (a, b) => a.name.localeCompare(b.name, 'zh')
         : sort === 'size'
           ? (a, b) => b.size - a.size
-          : (a, b) => b.createdAt - a.createdAt,
+          : (a, b) => stickerOrderTime(b) - stickerOrderTime(a),
   );
   $('#count').textContent =
     `${items.length} 个表情 · ${items.filter((i) => i.animated).length} 个动图`;
@@ -82,10 +82,12 @@ function render() {
   const grid = $('#grid');
   grid.replaceChildren();
   for (const item of items) {
-    const card = el('button', 'card' + (selected.has(item.id) ? ' selected' : ''));
+    const card = el('article', 'card' + (selected.has(item.id) ? ' selected' : ''));
     card.dataset.id = item.id;
-    card.setAttribute('aria-label', item.name + (item.animated ? '，动图' : ''));
-    card.setAttribute('aria-pressed', selected.has(item.id));
+    const surface = el('button', 'card-use');
+    surface.type = 'button';
+    surface.setAttribute('aria-label', item.name + (item.animated ? '，动图' : ''));
+    surface.setAttribute('aria-pressed', selected.has(item.id));
     const thumb = el('div', 'thumb');
     const img = el('img');
     img.src = item.url;
@@ -93,7 +95,7 @@ function render() {
     img.loading = 'lazy';
     img.draggable = true;
     thumb.append(img);
-    card.append(thumb);
+    surface.append(thumb);
     const info = el('div', 'card-info');
     info.append(el('strong', '', item.name));
     const meta = el('small');
@@ -102,18 +104,17 @@ function render() {
       el('span', '', size(item.size)),
     );
     info.append(meta);
-    card.append(info);
-    if (item.animated) card.append(el('span', 'badge', '▷ 动图'));
-    if (item.favorite) card.append(el('span', 'star', '★'));
-    card.draggable = !selecting;
-    card.ondragstart = (e) => {
+    surface.append(info);
+    if (item.animated) surface.append(el('span', 'badge', '▷ 动图'));
+    surface.draggable = !selecting;
+    surface.ondragstart = (e) => {
       e.preventDefault();
       clearTimeout(copyTimer);
       resetDrop();
       api.drag(item.id);
     };
-    card.title = '单击复制原文件 · 双击或右键管理';
-    card.onclick = (event) => {
+    surface.title = '单击复制原文件 · 双击或右键管理';
+    surface.onclick = (event) => {
       if (selecting) {
         selected.has(item.id) ? selected.delete(item.id) : selected.add(item.id);
         render();
@@ -129,15 +130,30 @@ function render() {
         else copyTimer = setTimeout(copy, 260);
       }
     };
-    card.ondblclick = () => {
+    surface.ondblclick = () => {
       clearTimeout(copyTimer);
       if (!selecting) openDetail(item);
     };
-    card.oncontextmenu = (event) => {
+    surface.oncontextmenu = (event) => {
       event.preventDefault();
       clearTimeout(copyTimer);
       if (!selecting) openDetail(item);
     };
+    card.append(surface);
+    if (!selecting)
+      card.append(
+        makeStickerActions(item, {
+          api,
+          beforeAction: () => clearTimeout(copyTimer),
+          onMoved: () => {
+            $('#sort').value = 'new';
+            render();
+            $('#grid').scrollIntoView({ block: 'start' });
+          },
+          onError: (error) => toast('操作失败：' + error.message),
+          onDone: toast,
+        }),
+      );
     grid.append(card);
   }
   $('#empty').hidden = items.length > 0;

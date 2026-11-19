@@ -287,6 +287,10 @@ if (ownsLock)
       await lib.update(id, patch);
       notify();
     });
+    ipcMain.handle('move-to-front', async (_, id) => {
+      await lib.moveToFront(id);
+      notify();
+    });
     ipcMain.handle('remove', async (_, ids) => {
       const r = await dialog.showMessageBox(win, {
         type: 'question',

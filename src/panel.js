@@ -23,8 +23,8 @@ function render() {
   );
   items.sort(
     filter === 'recent'
-      ? (a, b) => b.lastUsedAt - a.lastUsedAt
-      : (a, b) => b.createdAt - a.createdAt,
+      ? (a, b) => stickerOrderTime(b, true) - stickerOrderTime(a, true)
+      : (a, b) => stickerOrderTime(b) - stickerOrderTime(a),
   );
   const box = $('#items');
   box.replaceChildren();
@@ -47,8 +47,12 @@ function appendPage() {
   more.remove();
   const page = matchingItems.slice(shown, shown + 120);
   for (const i of page) {
+    const tile = document.createElement('div');
+    tile.className = 'item';
+    tile.title = i.name;
+    tile.dataset.id = i.id;
     const b = document.createElement('button');
-    b.className = 'item';
+    b.className = 'item-use';
     b.title = i.name;
     b.setAttribute('aria-label', i.name);
     b.draggable = true;
@@ -79,7 +83,20 @@ function appendPage() {
         $('#hint').textContent = '操作失败：' + e.message;
       }
     };
-    box.append(b);
+    tile.append(
+      b,
+      makeStickerActions(i, {
+        api,
+        onMoved: render,
+        onError: (error) => {
+          $('#hint').textContent = '操作失败：' + error.message;
+        },
+        onDone: (message) => {
+          $('#hint').textContent = message;
+        },
+      }),
+    );
+    box.append(tile);
   }
   shown += page.length;
   $('#count').textContent = `共 ${matchingItems.length} 个 · 已显示 ${shown} 个`;

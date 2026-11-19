@@ -15,6 +15,7 @@ contextBridge.exposeInMainWorld('vault', {
   state: () => ipcRenderer.invoke('state'),
   importFiles: (paths) => ipcRenderer.invoke('import', paths),
   pathFor: (file) => webUtils.getPathForFile(file),
+  moveToFront: (id) => ipcRenderer.invoke('move-to-front', id),
   update: (id, patch) => ipcRenderer.invoke('update', id, patch),
   remove: (ids) => ipcRenderer.invoke('remove', ids),
   reveal: (id) => ipcRenderer.invoke('reveal', id),

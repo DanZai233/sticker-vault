@@ -136,6 +136,22 @@ class Library {
       await this.save();
     });
   }
+  moveToFront(id) {
+    return this.run(async () => {
+      const index = this.data.items.findIndex((item) => item.id === id);
+      if (index < 0) throw Error('表情不存在');
+      const latestOrder = this.data.items.reduce(
+        (latest, item) =>
+          Math.max(latest, item.moveOrderAt || 0, item.createdAt || 0, item.lastUsedAt || 0),
+        0,
+      );
+      const [item] = this.data.items.splice(index, 1);
+      // Repeating the action moves forward again; there is no pinned flag to toggle.
+      item.moveOrderAt = Math.max(Date.now(), latestOrder + 1);
+      this.data.items.unshift(item);
+      await this.save();
+    });
+  }
   remove(ids) {
     return this.run(async () => {
       const items = this.data.items.filter((i) => ids.includes(i.id));

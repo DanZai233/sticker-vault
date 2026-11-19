@@ -1,7 +1,7 @@
 {
   "name": "sticker-vault",
   "productName": "表情仓",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "本地表情素材管理器",
   "main": "src/main.cjs",
   "scripts": {

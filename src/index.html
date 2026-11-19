@@ -9,6 +9,7 @@
     />
     <title>表情仓</title>
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="card-actions.css" />
   </head>
   <body>
     <aside>
@@ -45,7 +46,7 @@
             /
           </kbd></label
         ><select id="sort" aria-label="排序">
-          <option value="new">最近导入</option>
+          <option value="new">默认顺序</option>
           <option value="used">最近使用</option>
           <option value="name">名称排序</option>
           <option value="size">文件大小</option></select
@@ -145,6 +146,7 @@
     </dialog>
     <div id="toast" role="status" hidden></div>
     <div id="drop-overlay" hidden>松开，收藏你的表情 <small>原文件导入 · 自动去重</small></div>
+    <script src="card-actions.js"></script>
     <script src="renderer.js"></script>
   </body>
 </html>

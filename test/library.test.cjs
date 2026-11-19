@@ -52,3 +52,37 @@ test('concurrent imports are serialized, preserving one original', async () => {
     await fs.rm(root, { recursive: true, force: true });
   }
 });
+test('move-to-front is repeatable ordering, preserves favorite metadata and survives reload', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'vault-order-'));
+  try {
+    const lib = await new Library(root).init();
+    lib.data.items = [
+      { id: 'a', name: 'A', favorite: true, createdAt: 300 },
+      { id: 'b', name: 'B', favorite: false, createdAt: 200 },
+      { id: 'c', name: 'C', favorite: false, createdAt: 100 },
+    ];
+    await lib.save();
+    await lib.moveToFront('c');
+    const firstOrder = lib.data.items[0].moveOrderAt;
+    assert.deepEqual(
+      lib.data.items.map((i) => i.id),
+      ['c', 'a', 'b'],
+    );
+    await lib.moveToFront('c');
+    assert.deepEqual(
+      lib.data.items.map((i) => i.id),
+      ['c', 'a', 'b'],
+    );
+    assert.ok(lib.data.items[0].moveOrderAt > firstOrder);
+    await lib.moveToFront('b');
+    const reload = await new Library(root).init();
+    assert.deepEqual(
+      reload.data.items.map((i) => i.id),
+      ['b', 'c', 'a'],
+    );
+    assert.equal(reload.data.items.find((i) => i.id === 'a').favorite, true);
+    await assert.rejects(reload.moveToFront('missing'), /不存在/);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});

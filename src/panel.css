@@ -106,3 +106,43 @@ input:focus-visible {
   grid-column: 1 / -1;
   min-height: 40px;
 }
+
+.item {
+  padding: 0;
+}
+.item-use {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  border-radius: 6px;
+}
+.item .card-actions {
+  right: 3px;
+  bottom: 3px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease;
+}
+.item:hover .card-actions,
+.item:focus-within .card-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+.item .card-actions button {
+  width: 25px;
+  height: 25px;
+  font-size: 18px;
+  border-radius: 6px;
+}
+@media (hover: none) {
+  .item .card-actions {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .item .card-actions {
+    transition: none;
+  }
+}

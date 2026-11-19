@@ -618,3 +618,22 @@ h3 {
   max-height: 85px;
   overflow: auto;
 }
+
+.card-use {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  text-align: left;
+  background: transparent;
+}
+.card-use:hover {
+  background: transparent;
+}
+.card-info {
+  padding-bottom: 45px;
+}
+.card-use:focus-visible {
+  outline-offset: -3px;
+}
