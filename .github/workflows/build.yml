@@ -40,7 +40,7 @@ jobs:
         run: npm run test:platform-ui
       - name: Platform UI regression (Linux)
         if: matrix.platform == 'linux'
-        run: xvfb-run -a npm run test:platform-ui
+        run: xvfb-run -a ./node_modules/.bin/electron --no-sandbox scripts/test-platform-ui.cjs
       - name: Prepare verified platform helper
         run: node scripts/prepare-helper.cjs ${{ matrix.platform }} ${{ matrix.arch }}
       - name: Verify Windows helper starts

@@ -140,6 +140,7 @@ test('Windows adapter invokes exe with normalized root and Windows process optio
         timer.unref();
       }),
     ]);
+    await lib.queue;
     assert.equal(call.file, helper);
     assert.equal(call.args[call.args.indexOf('--wechat-data-dir') + 1], root);
     assert.equal(call.options.windowsHide, true);
