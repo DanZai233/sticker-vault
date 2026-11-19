@@ -10,6 +10,26 @@ app.disableHardwareAcceleration();
 if (process.env.CI && process.platform === 'linux') app.commandLine.appendSwitch('no-sandbox');
 app.whenReady().then(async () => {
   try {
+    if (process.env.CI && process.platform === 'win32') {
+      const { StartupControl } = require('../src/startup.cjs');
+      app.setAppUserModelId('com.stickervault.ci.startup.' + process.pid);
+      const startup = new StartupControl({
+        app: {
+          isPackaged: true,
+          getLoginItemSettings: (opts) => app.getLoginItemSettings(opts),
+          setLoginItemSettings: (opts) => app.setLoginItemSettings(opts),
+        },
+      });
+      try {
+        const enabled = await startup.set(true);
+        assert.equal(enabled.requested, true);
+        assert.equal(enabled.enabled, true);
+      } finally {
+        await startup.set(false);
+      }
+      assert.equal((await startup.get()).requested, false);
+      console.log('WINDOWS_STARTUP_PASS: real registry registration, status and removal');
+    }
     const win = new BrowserWindow({
       show: false,
       webPreferences: {

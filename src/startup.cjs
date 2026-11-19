@@ -73,7 +73,10 @@ class StartupControl {
       }
       const settings =
         this.platform === 'win32'
-          ? this.app.getLoginItemSettings({ path: this.execPath, args: ['--background'] })
+          ? this.app.getLoginItemSettings({
+              path: '"' + this.execPath + '"',
+              args: ['--background'],
+            })
           : this.app.getLoginItemSettings();
       const approval = settings.status === 'requires-approval';
       const requested = !!settings.openAtLogin || approval;

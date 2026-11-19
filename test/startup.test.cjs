@@ -31,6 +31,7 @@ test('Windows startup uses current-user Electron login settings with the exact e
   const c = new StartupControl({ app, platform: 'win32', execPath: exe, env: {} });
   assert.equal((await c.get()).enabled, false);
   assert.equal((await c.set(true)).enabled, true);
+  assert.deepEqual(app.calls[0].read, { path: '"' + exe + '"', args: ['--background'] });
   const write = app.calls.find((c) => c.write).write;
   assert.deepEqual(write, {
     openAtLogin: true,
