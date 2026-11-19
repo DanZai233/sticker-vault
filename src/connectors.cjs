@@ -3,6 +3,12 @@ const path = require('node:path');
 const os = require('node:os');
 const { spawn } = require('node:child_process');
 const { identify } = require('./library.cjs');
+const {
+  discoverWechat,
+  connectorDefaultDirectory,
+  wechatCacheDirectory,
+  helperName,
+} = require('./wechat-paths.cjs');
 async function dirs(p) {
   try {
     return (await fs.readdir(p, { withFileTypes: true }))
@@ -44,18 +50,12 @@ async function discoverQQ(home = os.homedir(), platform = process.platform, over
   }
   return out;
 }
-async function wechatAccounts(home = os.homedir(), override) {
-  return (
-    await dirs(
-      override ||
-        path.join(home, 'Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files'),
-    )
-  )
-    .filter((p) => path.basename(p).startsWith('wxid_'))
-    .map((p) => path.basename(p));
+async function wechatAccounts(home = os.homedir(), override, platform = process.platform) {
+  return (await discoverWechat({ home, override, platform })).accounts.map((a) => a.id);
 }
 class Connectors {
-  constructor(lib, notify, home = os.homedir(), platform = process.platform) {
+  constructor(lib, notify, home = os.homedir(), platform = process.platform, options = {}) {
+    this.options = { home, platform, ...options };
     this.platform = platform;
     this.lib = lib;
     this.notify = notify;
@@ -114,7 +114,9 @@ class Connectors {
       this.status('qq', {
         status: ['EPERM', 'EACCES'].includes(e.code) ? 'permission' : 'error',
         message: ['EPERM', 'EACCES'].includes(e.code)
-          ? 'macOS 尚未允许读取 QQ 目录，请点「授权目录」选择 QQ 数据文件夹。'
+          ? this.platform === 'darwin'
+            ? 'macOS 尚未允许读取 QQ 目录，请点「授权目录」选择 QQ 数据文件夹。'
+            : 'QQ 目录无法读取，请点击「选择数据目录」重新选择。'
           : 'QQ 读取失败：' + e.message,
       });
     } finally {
@@ -122,16 +124,35 @@ class Connectors {
       await this.persist();
     }
   }
+  defaultDirectory(id) {
+    return connectorDefaultDirectory(id, this.options);
+  }
   async wechat(account) {
     if (this.busy.has('wechat')) return;
-    let accounts;
+    if (!['darwin', 'win32'].includes(this.platform)) {
+      this.status('wechat', {
+        enabled: false,
+        status: 'unsupported',
+        message: '当前系统暂不提供微信自动读取，请手动导入导出的表情文件。',
+      });
+      await this.persist();
+      return;
+    }
+    let discovery, accounts;
     try {
-      accounts = await wechatAccounts(this.home, this.lib.data.connectors.wechat?.base);
+      discovery = await discoverWechat({
+        ...this.options,
+        override: this.lib.data.connectors.wechat?.base,
+      });
+      accounts = discovery.accounts.map((a) => a.id);
     } catch (e) {
       this.status('wechat', {
         enabled: true,
         status: 'permission',
-        message: 'macOS 尚未允许读取微信目录，请点「授权目录」选择 xwechat_files。',
+        message:
+          this.platform === 'darwin'
+            ? 'macOS 尚未允许读取微信目录，请点「授权目录」选择 xwechat_files。'
+            : '微信目录无法读取，请点「选择数据目录」选择微信 4.x 的 xwechat_files 文件夹。',
       });
       await this.persist();
       return;
@@ -143,23 +164,20 @@ class Connectors {
         status: 'waiting',
         message: accounts.length
           ? '请在下方选择微信账号后重试。'
-          : '未发现微信账号，请先登录电脑版微信。',
+          : discovery.legacy
+            ? '发现旧版微信目录，当前自动读取支持微信 4.x。请选择 4.x 的 xwechat_files 目录。'
+            : '未找到微信 4.x 表情数据库。请登录并打开一次表情面板，或选择设置 → 文件管理中的 xwechat_files 数据目录。',
         accounts,
       });
       await this.persist();
       return;
     }
-    const helper = __dirname.includes(path.sep + 'app.asar' + path.sep)
-      ? path.join(__dirname, '../../wxemoticon/wxemoticon')
-      : path.join(__dirname, '../vendor/wxemoticon/wxemoticon');
-    if (process.platform !== 'darwin') {
-      this.status('wechat', {
-        enabled: true,
-        status: 'error',
-        message: '当前微信助手仅随 macOS 版本提供。',
-      });
-      return;
-    }
+    const dataRoot = discovery.accounts.find((a) => a.id === account).root;
+    const helper =
+      this.options.helperPath ||
+      (__dirname.includes(path.sep + 'app.asar' + path.sep)
+        ? path.join(__dirname, '../../wxemoticon', helperName(this.platform))
+        : path.join(__dirname, '../vendor/wxemoticon', helperName(this.platform)));
     this.busy.add('wechat');
     this.status('wechat', {
       enabled: true,
@@ -167,7 +185,12 @@ class Connectors {
       waitingForExit: false,
       account,
       accounts,
-      message: '首次需要退出原微信；如弹出微信副本，请登录并打开表情面板。',
+      dataRoot,
+      needsCacheGrant: false,
+      message:
+        this.platform === 'win32'
+          ? '正在读取微信 4.x 收藏，请保持微信登录并打开表情面板。'
+          : '首次需要退出原微信；如弹出微信副本，请登录并打开表情面板。',
     });
     await this.persist();
     const out = path.join(this.lib.root, 'connector-cache/wechat', account);
@@ -175,7 +198,12 @@ class Connectors {
     const cached = await this.lib.import([out], '微信');
     if (cached.added) this.notify();
     try {
-      await fs.access(helper, require('node:fs').constants.X_OK);
+      await fs.access(
+        helper,
+        this.platform === 'win32'
+          ? require('node:fs').constants.F_OK
+          : require('node:fs').constants.X_OK,
+      );
     } catch {
       this.busy.delete('wechat');
       this.status('wechat', {
@@ -185,13 +213,12 @@ class Connectors {
       await this.persist();
       return;
     }
-    const child = spawn(
+    const child = (this.options.spawn || spawn)(
       helper,
       [
         '--no-interactive',
-        ...(this.lib.data.connectors.wechat?.base
-          ? ['--wechat-data-dir', this.lib.data.connectors.wechat.base]
-          : []),
+        '--wechat-data-dir',
+        dataRoot,
         'export',
         '--wxid',
         account,
@@ -205,7 +232,7 @@ class Connectors {
         '--http-timeout',
         '20',
       ],
-      { stdio: ['ignore', 'pipe', 'pipe'] },
+      { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true },
     );
     this.wechatChild = child;
     let stderr = '';
@@ -233,7 +260,8 @@ class Connectors {
           restoration = await require('./wechat-crypto.cjs').recoverEncryptedCache({
             home: this.home,
             account,
-            dataRoot: this.lib.data.connectors.wechat?.base,
+            dataRoot,
+            keyRoot: wechatCacheDirectory(this.options),
             cache: out,
           });
         } catch {
@@ -244,7 +272,7 @@ class Connectors {
         const permission = /Operation not permitted|Permission denied|不允许|权限/i.test(stderr);
         const waiting = /退出|WECHAT_RUNNING|running|微信.*运行/i.test(stderr);
         const timeout = /超时|timeout/i.test(stderr);
-        const cachePermission = permission && /缓存目录/.test(stderr);
+        const cachePermission = this.platform === 'darwin' && permission && /缓存目录/.test(stderr);
         let failed = 0;
         try {
           failed = Number(JSON.parse(stdout).failed) || 0;
@@ -262,7 +290,7 @@ class Connectors {
                   : waiting || timeout
                     ? 'waiting'
                     : 'error',
-          waitingForExit: code !== 0 && waiting,
+          waitingForExit: this.platform === 'darwin' && code !== 0 && waiting,
           needsCacheGrant: cachePermission,
           initialized: code === 0 || !!this.lib.data.connectors.wechat.initialized,
           lastScan: Date.now(),
@@ -272,11 +300,17 @@ class Connectors {
               : permission
                 ? cachePermission
                   ? '表情原件已保留。请点「授权助手缓存」，允许访问助手缓存目录后继续同步。'
-                  : '微信助手读取被 macOS 拒绝。请点「授权目录」选择微信数据目录后重试。'
+                  : this.platform === 'darwin'
+                    ? '微信助手读取被 macOS 拒绝。请点「授权目录」选择微信数据目录后重试。'
+                    : 'Windows 无法读取微信进程或目录。请确认微信已登录；若微信以管理员权限运行，请使用相同权限启动表情仓。'
                 : waiting
-                  ? '等待退出正在运行的微信；退出后会自动继续，并打开微信副本。'
+                  ? this.platform === 'win32'
+                    ? '请保持电脑版微信登录并打开表情面板后重试。'
+                    : '等待退出正在运行的微信；退出后会自动继续，并打开微信副本。'
                   : timeout
-                    ? '等待登录超时，请重试并在微信副本中登录、打开表情面板。'
+                    ? this.platform === 'win32'
+                      ? '读取超时，请确认已登录微信 4.x 并打开表情面板后重试。'
+                      : '等待登录超时，请重试并在微信副本中登录、打开表情面板。'
                     : `读取未完成，已导入 ${r.added} 个。${error ? '助手未能启动。' : '请确认网络及微信登录状态后重试。'}`,
         });
       } finally {

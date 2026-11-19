@@ -2,6 +2,7 @@ appId: com.electron.stickervault
 productName: StickerVault
 copyright: Copyright © 2026 DanZai233
 asar: true
+afterPack: scripts/verify-resources.cjs
 # Keep the storage location compatible with the first local release.
 extraMetadata:
   name: sticker-vault

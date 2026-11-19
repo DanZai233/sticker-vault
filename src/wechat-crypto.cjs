@@ -58,7 +58,7 @@ function decryptSticker(payload, key) {
     bytes = bytes.subarray(0, -pad);
   return identify(bytes) ? bytes : null;
 }
-async function recoverEncryptedCache({ home, account, dataRoot, cache }) {
+async function recoverEncryptedCache({ home, account, dataRoot, cache, keyRoot }) {
   const unknown = [];
   for (const name of await fs.readdir(cache)) {
     if (!/^[a-f\d]{32}\.(jpg|gif|png|webp)$/i.test(name)) continue;
@@ -69,8 +69,11 @@ async function recoverEncryptedCache({ home, account, dataRoot, cache }) {
   }
   if (!unknown.length) return { recovered: 0, unreadable: 0 };
   const keyFile = path.join(
-    home,
-    'Library/Containers/com.tencent.xinWeChat/Data/Documents/export-wechat-emoji',
+    keyRoot ||
+      path.join(
+        home,
+        'Library/Containers/com.tencent.xinWeChat/Data/Documents/export-wechat-emoji',
+      ),
     `emoticon_dbkey_${account}.txt`,
   );
   const keyText = (await fs.readFile(keyFile, 'utf8')).trim();

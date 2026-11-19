@@ -71,10 +71,18 @@ for (const b of document.querySelectorAll('nav button'))
 $('#open-main').onclick = () => api.openMain();
 api.onChange((s) => {
   state = s;
+  $('#hint').textContent =
+    s.platform === 'darwin'
+      ? '点击复制原文件；授权后可自动粘贴'
+      : '点击复制原文件，然后回到聊天窗口按 Ctrl+V';
   render();
 });
 api.onError((s) => ($('#hint').textContent = s));
 api.state().then((s) => {
   state = s;
+  $('#hint').textContent =
+    s.platform === 'darwin'
+      ? '点击复制原文件；授权后可自动粘贴'
+      : '点击复制原文件，然后回到聊天窗口按 Ctrl+V';
   render();
 });

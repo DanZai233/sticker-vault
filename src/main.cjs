@@ -42,6 +42,7 @@ app.on('second-instance', (_, argv) => {
 
 const snapshot = () => ({
   ...lib.data,
+  platform: process.platform,
   items: lib.data.items.map((i) => ({
     ...i,
     url: pathToFileURL(path.join(lib.root, 'originals', i.file)).href,
@@ -119,9 +120,13 @@ async function scan() {
 if (ownsLock)
   app.whenReady().then(async () => {
     lib = await new Library(path.join(app.getPath('userData'), 'vault')).init();
-    connectors = new Connectors(lib, notify);
+    connectors = new Connectors(lib, notify, app.getPath('home'), process.platform, {
+      documents: app.getPath('documents'),
+      appData: app.getPath('appData'),
+    });
     douyin = new DouyinConnector(connectors);
     ipcMain.handle('wechat-cache-authorize', async () => {
+      if (process.platform !== 'darwin') throw Error('当前平台不需要 macOS 缓存授权。');
       const d = await dialog.showOpenDialog(win, {
         title: '授权微信助手缓存',
         message: '允许读取并更新微信助手的本地缓存目录。这个目录不包含聊天记录。',
@@ -136,16 +141,21 @@ if (ownsLock)
     });
     ipcMain.handle('connector-authorize', async (_, id) => {
       if (!['qq', 'wechat'].includes(id)) throw Error('未知来源');
-      const defaultPath = path.join(
-        app.getPath('home'),
-        id === 'qq'
-          ? 'Library/Containers/com.tencent.qq/Data/Library/Application Support/QQ'
-          : 'Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files',
-      );
+      const defaultPath = await connectors.defaultDirectory(id);
       const d = await dialog.showOpenDialog(win, {
-        title: id === 'qq' ? '授权读取 QQ 个人收藏' : '授权读取微信收藏',
-        message: '选择当前打开的数据文件夹并点击「允许读取」。仅用于读取个人表情原件。',
-        buttonLabel: '允许读取',
+        title:
+          process.platform === 'darwin'
+            ? id === 'qq'
+              ? '授权读取 QQ 个人收藏'
+              : '授权读取微信收藏'
+            : id === 'qq'
+              ? '选择 QQ 数据目录'
+              : '选择微信 4.x 数据目录',
+        message:
+          id === 'wechat'
+            ? '请选择微信 4.x 的 xwechat_files 文件夹，或其中的账号文件夹。自定义位置可在微信设置 → 文件管理中查看。'
+            : '请选择 QQ 的个人数据目录，仅用于读取表情原件。',
+        buttonLabel: process.platform === 'darwin' ? '允许读取' : '选择此目录',
         defaultPath,
         properties: ['openDirectory'],
       });

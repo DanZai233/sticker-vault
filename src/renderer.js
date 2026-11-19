@@ -343,6 +343,11 @@ action(async () => {
 });
 
 function renderConnectors() {
+  const isMac = state.platform === 'darwin';
+  $('.paste-access').hidden = !isMac;
+  $('#settings .connection-note').textContent = isMac
+    ? 'QQ 每 30 秒检查缓存；微信首次需要登录助手副本，之后每 5 分钟同步；抖音在收藏面板加载时收集。'
+    : 'QQ 每 30 秒检查已缓存收藏；Windows 微信需保持 4.x 登录并打开表情面板，成功后每 5 分钟同步；抖音在收藏面板加载时收集。';
   const box = $('#connector-list');
   box.replaceChildren();
   const defs = [
@@ -350,7 +355,11 @@ function renderConnectors() {
     [
       'wechat',
       '微信',
-      '首次请退出微信；助手会重签名并打开微信副本，登录后打开表情面板。原微信安装不改动。',
+      isMac
+        ? '首次请退出微信；助手会打开副本，登录后打开表情面板。原微信安装不改动。'
+        : state.platform === 'win32'
+          ? '请登录微信 4.x 并打开收藏表情面板。支持默认、自定义和重定向的文档数据目录。'
+          : '当前系统不提供微信读取助手，可手动导入导出的表情文件。',
       '读取微信收藏',
     ],
     [
@@ -377,13 +386,14 @@ function renderConnectors() {
           partial: '部分完成',
           permission: '需要授权',
           disabled: '已停用',
+          unsupported: '暂不支持',
         }[s.status] || '未连接',
       ),
     );
     row.append(head, el('p', '', description));
     if (s.message) row.append(el('p', 'connector-message', s.message));
     const actions = el('div', 'connector-actions');
-    if (id === 'wechat' && s.needsCacheGrant) {
+    if (isMac && id === 'wechat' && s.needsCacheGrant) {
       const cache = el('button', 'primary', '授权助手缓存');
       cache.onclick = () => action(() => api.authorizeWechatCache());
       actions.append(cache);
@@ -401,13 +411,18 @@ function renderConnectors() {
       actions.append(account);
     }
     if (id !== 'douyin') {
-      const grant = el('button', s.status === 'permission' ? 'primary' : '', '授权目录');
+      const grant = el(
+        'button',
+        s.status === 'permission' ? 'primary' : '',
+        isMac ? '授权目录' : '选择数据目录',
+      );
       grant.disabled = s.status === 'syncing';
       grant.onclick = () => action(() => api.authorizeConnector(id));
       actions.append(grant);
     }
     const b = el('button', 'primary', s.status === 'syncing' ? '正在读取…' : label);
-    b.disabled = s.status === 'syncing';
+    b.disabled =
+      s.status === 'syncing' || (id === 'wechat' && !['darwin', 'win32'].includes(state.platform));
     b.onclick = () => action(() => api.syncConnector(id, account?.value || s.account));
     actions.append(b);
     if (s.enabled) {
