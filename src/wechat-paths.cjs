@@ -181,6 +181,10 @@ async function connectorDefaultDirectory(id, options = {}) {
     for (const c of candidates) if (await exists(c).catch(() => false)) return c;
     return p.home;
   }
+  const originalRoots = await require('./qq-paths.cjs')
+    .discoverQQPaths(options)
+    .catch(() => []);
+  if (originalRoots.length) return originalRoots[0];
   const candidates =
     p.platform === 'darwin'
       ? [path.join(p.home, 'Library/Containers/com.tencent.qq/Data/Library/Application Support/QQ')]

@@ -163,3 +163,7 @@ git push origin main v0.3.1
 找不到目录时，在微信「设置 → 文件管理」查看位置。自动读取面向微信 4.x；旧版目录不能当作 4.x 数据库。Windows 需保持微信登录并打开表情面板，不需要退出微信或启动 macOS 副本。Windows ARM64 包使用 x64 助手，依赖系统的 x64 仿真；真实 ARM64 微信进程兼容性尚未实机验收。
 
 Windows 隐藏 macOS 光标粘贴和助手缓存授权，托盘面板复制原文件后使用 Ctrl+V。真实账号读取仍需用户电脑验收，CI 验证路径、界面、助手启动及安装包资源。
+
+### Windows QQ NT 数据目录
+
+自动检查系统实际文档目录（含 OneDrive / 重定向）中的 `Tencent Files`、`QQ Files`，以及 AppData 下的 QQ NT 账号目录；支持 QQ 用户配置 `UserDataInfo.ini` 记录的自定义位置。可以选择数据父目录、QQ 账号目录、`nt_qq`、`nt_data`、`Emoji`、`personal_emoji` 或其中的 `Ori` 文件夹。只读取收藏的 Ori 原件，不导入 Thumb 缩略图、聊天收到的图片或程序自带表情。旧版 QQ 数据库 / EIF 文件尚不支持自动解析。

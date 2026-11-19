@@ -19,36 +19,13 @@ async function dirs(p) {
     throw e;
   }
 }
-async function discoverQQ(home = os.homedir(), platform = process.platform, override) {
-  const bases = override
-    ? [override]
-    : platform === 'darwin'
-      ? [path.join(home, 'Library/Containers/com.tencent.qq/Data/Library/Application Support/QQ')]
-      : platform === 'win32'
-        ? [
-            path.join(home, 'Documents/Tencent Files'),
-            path.join(home, 'AppData/Roaming/Tencent/QQ'),
-          ]
-        : [path.join(home, '.config/QQ')];
-  const out = [];
-  for (const base of bases) {
-    for (const user of await dirs(base)) {
-      const name = path.basename(user);
-      if (!/^nt_qq_|^\d+$/.test(name)) continue;
-      for (const rel of [
-        'nt_data/Emoji/personal_emoji/Ori',
-        'nt_qq/nt_data/Emoji/personal_emoji/Ori',
-      ]) {
-        const root = path.join(user, rel);
-        try {
-          if ((await fs.stat(root)).isDirectory()) out.push(root);
-        } catch (e) {
-          if (e.code !== 'ENOENT') throw e;
-        }
-      }
-    }
-  }
-  return out;
+async function discoverQQ(
+  home = os.homedir(),
+  platform = process.platform,
+  override,
+  options = {},
+) {
+  return require('./qq-paths.cjs').discoverQQPaths({ ...options, home, platform, override });
 }
 async function wechatAccounts(home = os.homedir(), override, platform = process.platform) {
   return (await discoverWechat({ home, override, platform })).accounts.map((a) => a.id);
@@ -82,11 +59,17 @@ class Connectors {
     this.busy.add('qq');
     this.status('qq', { enabled: true, status: 'syncing', message: '查找 QQ 个人收藏原件…' });
     try {
-      const roots = await discoverQQ(this.home, this.platform, this.lib.data.connectors.qq?.base);
+      const roots = await discoverQQ(
+        this.home,
+        this.platform,
+        this.lib.data.connectors.qq?.base,
+        this.options,
+      );
       if (!roots.length) {
         this.status('qq', {
           status: 'waiting',
-          message: '未找到 QQ 个人收藏缓存。请先登录 QQ，打开收藏表情面板后重试。',
+          message:
+            '未找到新版 QQ NT 的收藏原件缓存。请登录并打开收藏表情面板，或选择 QQ 数据目录、账号目录或 personal_emoji 目录。',
         });
         return;
       }
