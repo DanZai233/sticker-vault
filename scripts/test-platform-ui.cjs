@@ -29,6 +29,13 @@ app.whenReady().then(async () => {
     assert.ok(windowsText.includes('选择数据目录'));
     assert.ok(!windowsText.includes('微信副本'));
     assert.ok(!windowsText.includes('授权助手缓存'));
+    assert.equal(await js('document.querySelector("#ocr-enabled").checked'), true);
+    await js('document.querySelector("#ocr-enabled").onchange({target:{checked:false}})');
+    assert.equal(await js('state.ocr.enabled'), false);
+    await js('document.querySelector("#startup-enabled").onchange({target:{checked:true}})');
+    assert.equal(await js('state.startup.requested'), true);
+    await js('document.querySelector("#startup-enabled").onchange({target:{checked:false}})');
+    assert.equal(await js('state.startup.requested'), false);
     await js('state.platform="darwin";render()');
     assert.equal(await js('document.querySelector(".paste-access").hidden'), false);
     assert.ok(
@@ -38,6 +45,20 @@ app.whenReady().then(async () => {
     assert.equal(await js('document.querySelector(".paste-access").hidden'), true);
     console.log(
       'PLATFORM_UI_PASS: Windows hides macOS controls, macOS retains controls, Linux hides controls',
+    );
+    await win.loadFile(path.join(__dirname, '../src/panel.html'));
+    await js(
+      `window.vault.state().then(s=>{state=s;state.items=Array.from({length:301},(_,i)=>({id:String(i),name:"表情"+i,tags:[],createdAt:301-i,url:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"}));document.querySelector('[data-filter="all"]').click()})`,
+    );
+    assert.ok((await js('document.querySelector("#count").textContent')).includes('共 301 个'));
+    await js('while(shown<matchingItems.length) appendPage()');
+    assert.equal(await js('document.querySelectorAll(".item").length'), 301);
+    assert.equal(await js('document.querySelector("#load-more")'), null);
+    await js('document.querySelector("#search").value="表情300";render()');
+    assert.equal(await js('document.querySelectorAll(".item").length'), 1);
+    assert.equal(await js('document.querySelector(".item").title'), '表情300');
+    console.log(
+      'PREFERENCES_PANEL_PASS: switches work, all 301 stickers reachable and searchable beyond first page',
     );
     win.destroy();
     app.exit(0);

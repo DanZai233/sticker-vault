@@ -570,3 +570,51 @@ h3 {
   font-size: 14px;
   margin: 24px 0 12px;
 }
+
+.app-preferences {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 4px 15px 14px;
+  margin-bottom: 24px;
+  background: #f6f8f5;
+}
+.preference {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 0 8px;
+}
+.preference span {
+  flex: 1;
+  min-width: 0;
+}
+.preference strong {
+  display: block;
+  font-size: 13px;
+  color: #2b4936;
+}
+.preference small {
+  display: block;
+  margin-top: 6px;
+  line-height: 1.7;
+  color: #7e8b82;
+  font-size: 11px;
+}
+.preference input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  accent-color: var(--green);
+  margin: 0;
+}
+#ocr-status {
+  font-size: 11px;
+  line-height: 1.8;
+  color: #7b897e;
+  margin: 2px 0 7px;
+}
+#ocr-detail {
+  overflow-wrap: anywhere;
+  max-height: 85px;
+  overflow: auto;
+}

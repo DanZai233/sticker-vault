@@ -4,6 +4,8 @@ const resolved = async () => ({ copied: true });
 contextBridge.exposeInMainWorld('vault', {
   state: async () => ({
     platform: 'win32',
+    ocr: { enabled: true, total: 0, done: 0, pending: 0, failed: 0 },
+    startup: { enabled: false, requested: false, supported: true, message: 'Windows 启动项' },
     items: [],
     folders: [],
     connectors: {
@@ -15,6 +17,10 @@ contextBridge.exposeInMainWorld('vault', {
       },
     },
   }),
+  onOcrUpdate: noop,
+  setOcrEnabled: async (enabled) => ({ enabled, total: 0, done: 0, pending: 0, failed: 0 }),
+  setStartupEnabled: async (enabled) => ({ enabled, requested: enabled, supported: true }),
+  openStartupSettings: resolved,
   onChange: noop,
   onError: noop,
   onDragEnd: noop,

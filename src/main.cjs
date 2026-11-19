@@ -10,6 +10,7 @@ const {
   Tray,
   Menu,
   screen,
+  utilityProcess,
 } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
@@ -18,6 +19,10 @@ const { Library } = require('./library.cjs');
 const { Connectors } = require('./connectors.cjs');
 const { DouyinConnector } = require('./douyin.cjs');
 const native = require('./native.cjs');
+const { StartupControl } = require('./startup.cjs');
+const { OcrQueue } = require('./ocr.cjs');
+const { OcrRunner } = require('./ocr-runner.cjs');
+const { OcrImageExtractor } = require('./ocr-image.cjs');
 let win,
   lib,
   timer,
@@ -27,12 +32,16 @@ let win,
   panel,
   targetPid = 0,
   quitting = false,
-  scanning = false;
+  scanning = false,
+  ocr,
+  imageExtractor,
+  startupControl,
+  startupState = { supported: false, enabled: false };
 if (process.env.STICKER_TEST_ROOT) app.setPath('userData', process.env.STICKER_TEST_ROOT);
 const ownsLock = app.requestSingleInstanceLock();
 if (!ownsLock) app.quit();
 app.on('second-instance', (_, argv) => {
-  if (win) {
+  if (win && !argv.includes('--background')) {
     win.show();
     win.focus();
   }
@@ -40,14 +49,20 @@ app.on('second-instance', (_, argv) => {
   if (argv.includes('--connect-wechat')) connectors?.wechat();
 });
 
-const snapshot = () => ({
-  ...lib.data,
-  platform: process.platform,
-  items: lib.data.items.map((i) => ({
-    ...i,
-    url: pathToFileURL(path.join(lib.root, 'originals', i.file)).href,
-  })),
-});
+const snapshot = () => {
+  const { ocrRecords, ...data } = lib.data;
+  return {
+    ...data,
+    platform: process.platform,
+    startup: startupState,
+    ocr: ocr?.summary(),
+    items: lib.data.items.map((i) => ({
+      ...i,
+      url: pathToFileURL(path.join(lib.root, 'originals', i.file)).href,
+    })),
+  };
+};
+
 const notify = () => {
   for (const w of [win, panel])
     if (w && !w.isDestroyed()) w.webContents.send('changed', snapshot());
@@ -125,6 +140,51 @@ if (ownsLock)
       appData: app.getPath('appData'),
     });
     douyin = new DouyinConnector(connectors);
+    startupControl = new StartupControl({ app });
+    startupState = await startupControl.get();
+    const backgroundLaunch =
+      process.argv.includes('--background') ||
+      (process.platform === 'darwin' && app.getLoginItemSettings().wasOpenedAtLogin);
+    imageExtractor = new OcrImageExtractor();
+    const runner = new OcrRunner({
+      modelsPath: app.isPackaged
+        ? path.join(process.resourcesPath, 'ocr-data')
+        : path.join(__dirname, '../vendor/ocr-data'),
+      hostPath: app.isPackaged
+        ? path.join(process.resourcesPath, 'app.asar.unpacked/src/ocr-host.cjs')
+        : path.join(__dirname, 'ocr-host.cjs'),
+      spawnHost: (host) =>
+        utilityProcess.fork(host, [], { serviceName: '表情仓后台 OCR', stdio: 'pipe' }),
+    });
+    ocr = await new OcrQueue(lib, {
+      engine: runner,
+      prepareImage: (file) => imageExtractor.read(file),
+      notify: (summary, item) => {
+        const update = {
+          summary,
+          item: item
+            ? { ...item, url: pathToFileURL(path.join(lib.root, 'originals', item.file)).href }
+            : undefined,
+        };
+        for (const window of [win, panel])
+          if (window && !window.isDestroyed()) window.webContents.send('ocr-update', update);
+      },
+      schedule: !process.env.STICKER_SMOKE && !process.env.STICKER_CONNECTOR_SMOKE,
+    }).init();
+    ipcMain.handle('ocr-enabled', (_, enabled) => ocr.setEnabled(enabled));
+    ipcMain.handle('startup-enabled', async (_, enabled) => {
+      startupState = await startupControl.set(enabled);
+      notify();
+      return startupState;
+    });
+    ipcMain.handle('startup-settings', () => {
+      if (process.platform === 'darwin')
+        return shell.openExternal(
+          'x-apple.systempreferences:com.apple.LoginItems-Settings.extension',
+        );
+      if (process.platform === 'win32') return shell.openExternal('ms-settings:startupapps');
+      return shell.openPath(path.dirname(startupControl.file));
+    });
     ipcMain.handle('wechat-cache-authorize', async () => {
       if (process.platform !== 'darwin') throw Error('当前平台不需要 macOS 缓存授权。');
       const d = await dialog.showOpenDialog(win, {
@@ -175,7 +235,10 @@ if (ownsLock)
       await connectors.disable(id);
       if (id === 'douyin') douyin.close();
     });
-    ipcMain.handle('state', () => snapshot());
+    ipcMain.handle('state', async () => {
+      startupState = await startupControl.get();
+      return snapshot();
+    });
     ipcMain.handle('copy-original', async (_, id) => {
       const r = await native.insert(fileFor(id), 0);
       await used(id);
@@ -296,6 +359,7 @@ if (ownsLock)
       height: 830,
       minWidth: 760,
       minHeight: 580,
+      show: !backgroundLaunch,
       title: '表情仓',
       backgroundColor: '#f7f8fa',
       webPreferences: {
@@ -365,6 +429,8 @@ app.on('activate', () => {
 });
 app.on('before-quit', () => {
   quitting = true;
+  ocr?.stop();
+  imageExtractor?.stop();
 });
 app.on('window-all-closed', () => {
   if (!tray) app.quit();

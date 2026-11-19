@@ -17,3 +17,4 @@ connector-cache/
 
 vendor/native/sticker-insert
 /work/
+vendor/ocr-data/*.traineddata.gz

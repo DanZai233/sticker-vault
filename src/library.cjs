@@ -105,7 +105,7 @@ class Library {
           }
           const file = id + '.' + type.ext;
           await fs.writeFile(path.join(this.root, 'originals', file), b);
-          this.data.items.unshift({
+          const imported = {
             id,
             file,
             name: path.parse(p).name,
@@ -115,7 +115,9 @@ class Library {
             tags: [],
             favorite: false,
             createdAt: Date.now(),
-          });
+          };
+          require('./ocr.cjs').restoreOcr(imported, this.data.ocrRecords?.[id]);
+          this.data.items.unshift(imported);
           added++;
         } catch (e) {
           errors.push(path.basename(p) + ': ' + e.message);

@@ -62,7 +62,7 @@ function render() {
             : filter === 'animated'
               ? i.animated
               : i.source === filter)) &&
-      [i.name, i.source, ...i.tags].join(' ').toLowerCase().includes(q),
+      [i.name, i.source, i.ocrText || '', ...i.tags].join(' ').toLowerCase().includes(q),
   );
   const sort = $('#sort').value;
   items.sort(
@@ -83,6 +83,7 @@ function render() {
   grid.replaceChildren();
   for (const item of items) {
     const card = el('button', 'card' + (selected.has(item.id) ? ' selected' : ''));
+    card.dataset.id = item.id;
     card.setAttribute('aria-label', item.name + (item.animated ? '，动图' : ''));
     card.setAttribute('aria-pressed', selected.has(item.id));
     const thumb = el('div', 'thumb');
@@ -150,9 +151,18 @@ function render() {
   }
   renderFolders();
   renderConnectors();
+  renderPreferences();
 }
 function openDetail(item) {
   current = item.id;
+  $('#ocr-detail').textContent =
+    item.ocrStatus === 'done'
+      ? item.ocrText
+        ? 'OCR：' + item.ocrText
+        : 'OCR 已完成，未识别到可靠文字。'
+      : item.ocrStatus === 'error' || item.ocrStatus === 'interrupted'
+        ? 'OCR 失败或被中断，已记录且不会自动重复执行。'
+        : '等待后台 OCR 识别。';
   $('#detail-img').src = item.url;
   $('#detail-img').alt = item.name;
   $('#edit-name').value = item.name;
@@ -448,3 +458,60 @@ $('#authorize-paste').onclick = () =>
       r.trusted ? '自动粘贴已启用' : '请在系统设置的辅助功能中允许表情仓，授权后即可自动粘贴。',
     );
   });
+
+let preferenceBusy = false;
+function renderPreferences() {
+  const summary = state.ocr;
+  $('#ocr-enabled').checked = summary?.enabled ?? true;
+  $('#ocr-enabled').disabled = preferenceBusy || !summary;
+  const phase = summary?.error
+    ? summary.error
+    : summary?.running
+      ? summary.phase === 'loading'
+        ? '正在准备本地识别引擎…'
+        : '正在后台识别一张图片…'
+      : summary?.enabled
+        ? '每次一张，间隔约 2 秒；不会重复识别已处理图片。'
+        : '已暂停；当前图片若正在识别，会处理完后暂停。';
+  $('#ocr-status').textContent = summary
+    ? `已完成 ${summary.done} / ${summary.total} · 待处理 ${summary.pending} · 失败或中断 ${summary.failed}。${phase}`
+    : '正在读取识别队列…';
+  $('#ocr-resume').hidden = !summary?.error;
+  $('#ocr-resume').disabled = preferenceBusy;
+  const startup = state.startup || {};
+  $('#startup-enabled').checked = !!startup.requested || !!startup.enabled;
+  $('#startup-enabled').disabled = preferenceBusy || !startup.supported;
+  $('#startup-description').textContent = startup.message || '正在读取系统启动设置…';
+  $('#startup-settings').hidden = !startup.requiresApproval && !startup.blocked;
+  $('#startup-update').hidden = !startup.needsUpdate;
+}
+async function setPreference(kind, enabled) {
+  preferenceBusy = true;
+  renderPreferences();
+  try {
+    if (kind === 'ocr') state.ocr = await api.setOcrEnabled(enabled);
+    else state.startup = await api.setStartupEnabled(enabled);
+  } catch (e) {
+    toast('设置未生效：' + e.message);
+  } finally {
+    preferenceBusy = false;
+    renderPreferences();
+  }
+}
+$('#ocr-enabled').onchange = (event) => setPreference('ocr', event.target.checked);
+$('#ocr-resume').onclick = () => setPreference('ocr', true);
+$('#startup-enabled').onchange = (event) => setPreference('startup', event.target.checked);
+$('#startup-update').onclick = () => setPreference('startup', true);
+$('#startup-settings').onclick = () => action(() => api.openStartupSettings());
+api.onOcrUpdate((update) => {
+  state.ocr = update.summary;
+  if (update.item) {
+    const index = state.items.findIndex((i) => i.id === update.item.id);
+    if (index >= 0) state.items[index] = update.item;
+    const meta = document.querySelector(`.card[data-id="${update.item.id}"] .card-info small span`);
+    if (meta)
+      meta.textContent = update.item.tags.length ? '# ' + update.item.tags[0] : update.item.source;
+    if ($('#search').value.trim()) render();
+  }
+  renderPreferences();
+});

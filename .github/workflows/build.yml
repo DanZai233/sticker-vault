@@ -46,6 +46,14 @@ jobs:
       - name: Verify Windows helper starts
         if: matrix.platform == 'win32'
         run: '& .\vendor\wxemoticon\wxemoticon.exe --version'
+      - name: Prepare offline OCR models
+        run: npm run prepare:ocr
+      - name: Real offline OCR integration (Windows and macOS)
+        if: matrix.platform != 'linux'
+        run: npm run test:ocr-engine
+      - name: Real offline OCR integration (Linux)
+        if: matrix.platform == 'linux'
+        run: xvfb-run -a ./node_modules/.bin/electron --no-sandbox scripts/test-ocr-engine.cjs
       - name: Build native paste helper
         # The Windows helper is also exercised before inclusion in installers.
         run: node scripts/build-native.cjs ${{ matrix.arch }}

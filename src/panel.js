@@ -2,12 +2,24 @@ const api = window.vault;
 let state = { items: [] },
   filter = 'recent';
 const $ = (s) => document.querySelector(s);
+let matchingItems = [],
+  shown = 0;
+const more = document.createElement('button');
+more.id = 'load-more';
+more.onclick = () => appendPage();
+const observer = new IntersectionObserver(
+  (entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) appendPage();
+  },
+  { root: $('#items'), rootMargin: '100px' },
+);
+observer.observe(more);
 function render() {
   const q = $('#search').value.trim().toLowerCase();
   let items = state.items.filter(
     (i) =>
       (filter === 'all' || (filter === 'recent' ? i.lastUsedAt : i.favorite)) &&
-      [i.name, ...i.tags].join(' ').toLowerCase().includes(q),
+      [i.name, i.ocrText || '', ...i.tags].join(' ').toLowerCase().includes(q),
   );
   items.sort(
     filter === 'recent'
@@ -16,7 +28,25 @@ function render() {
   );
   const box = $('#items');
   box.replaceChildren();
-  for (const i of items.slice(0, 120)) {
+  box.scrollTop = 0;
+  matchingItems = items;
+  shown = 0;
+  appendPage();
+  if (!items.length) {
+    const p = document.createElement('p');
+    p.className = 'empty';
+    p.textContent =
+      filter === 'recent'
+        ? '用过的表情会出现在这里。先切换到「全部」，点击或拖出一个表情。'
+        : '暂无匹配表情';
+    box.append(p);
+  }
+}
+function appendPage() {
+  const box = $('#items');
+  more.remove();
+  const page = matchingItems.slice(shown, shown + 120);
+  for (const i of page) {
     const b = document.createElement('button');
     b.className = 'item';
     b.title = i.name;
@@ -51,14 +81,11 @@ function render() {
     };
     box.append(b);
   }
-  if (!items.length) {
-    const p = document.createElement('p');
-    p.className = 'empty';
-    p.textContent =
-      filter === 'recent'
-        ? '用过的表情会出现在这里。先切换到「全部」，点击或拖出一个表情。'
-        : '暂无匹配表情';
-    box.append(p);
+  shown += page.length;
+  $('#count').textContent = `共 ${matchingItems.length} 个 · 已显示 ${shown} 个`;
+  if (shown < matchingItems.length) {
+    more.textContent = `继续加载（还有 ${matchingItems.length - shown} 个）`;
+    box.append(more);
   }
 }
 $('#search').oninput = render;
@@ -85,4 +112,12 @@ api.state().then((s) => {
       ? '点击复制原文件；授权后可自动粘贴'
       : '点击复制原文件，然后回到聊天窗口按 Ctrl+V';
   render();
+});
+
+api.onOcrUpdate((update) => {
+  if (update.item) {
+    const index = state.items.findIndex((i) => i.id === update.item.id);
+    if (index >= 0) state.items[index] = update.item;
+    if ($('#search').value.trim()) render();
+  }
 });

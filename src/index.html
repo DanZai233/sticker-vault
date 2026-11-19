@@ -35,7 +35,7 @@
           <h1 id="heading">全部表情</h1>
         </div>
         <div class="header-actions">
-          <span class="local-dot">本地素材库</span><button id="manage">收集设置</button>
+          <span class="local-dot">本地素材库</span><button id="manage">设置</button>
         </div>
       </header>
       <div class="toolbar">
@@ -82,6 +82,7 @@
             >标签 <small>用逗号分隔</small><input id="edit-tags" placeholder="开心, 打工, 猫猫"
           /></label>
           <p id="metadata"></p>
+          <p id="ocr-detail" class="hint"></p>
           <button id="save" class="primary">保存修改</button
           ><button id="favorite">♡ 设为常用</button>
         </div>
@@ -97,9 +98,27 @@
     </dialog>
     <dialog id="settings">
       <div class="dialog-top">
-        <h2>自动收集</h2>
+        <h2>设置与自动收集</h2>
         <button class="close" aria-label="关闭">×</button>
       </div>
+      <section class="app-preferences" aria-label="识别与启动设置">
+        <label class="preference"
+          ><span
+            ><strong>后台 OCR 自动标签</strong
+            ><small>本地简体中文与英文识别；每张图片只执行一次，动图取首帧，保留原件。</small></span
+          ><input type="checkbox" id="ocr-enabled" aria-label="后台 OCR 自动标签"
+        /></label>
+        <p id="ocr-status" role="status">正在读取识别队列…</p>
+        <button id="ocr-resume" hidden>继续处理剩余图片</button>
+        <label class="preference"
+          ><span
+            ><strong>登录后自动启动</strong
+            ><small id="startup-description">正在读取系统启动设置…</small></span
+          ><input type="checkbox" id="startup-enabled" aria-label="登录后自动启动"
+        /></label>
+        <button id="startup-settings" hidden>打开系统启动设置</button
+        ><button id="startup-update" hidden>更新启动项位置</button>
+      </section>
       <p class="settings-intro">从个人收藏读取原件，自动去重，保留完整动画。</p>
       <div class="paste-access" hidden>
         <button id="authorize-paste">启用 macOS 光标粘贴</button

@@ -1,7 +1,6 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 module.exports = async (context) => {
-  if (!['darwin', 'win32'].includes(context.electronPlatformName)) return;
   const root =
     context.electronPlatformName === 'darwin'
       ? path.join(
@@ -9,6 +8,15 @@ module.exports = async (context) => {
           context.packager.appInfo.productFilename + '.app/Contents/Resources',
         )
       : path.join(context.appOutDir, 'resources');
+  for (const language of ['chi_sim', 'eng']) {
+    const stat = await fs.stat(path.join(root, 'ocr-data', language + '.traineddata.gz'));
+    if (stat.size < 100000) throw Error('Missing bundled OCR model: ' + language);
+  }
+  await fs.access(path.join(root, 'app.asar.unpacked/src/ocr-host.cjs'));
+  await fs.access(
+    path.join(root, 'app.asar.unpacked/node_modules/tesseract.js/src/worker-script/node/index.js'),
+  );
+  if (!['darwin', 'win32'].includes(context.electronPlatformName)) return;
   const file = path.join(
     root,
     'wxemoticon',

@@ -96,3 +96,13 @@ input:focus-visible {
   outline: 2px solid #6ba382;
   outline-offset: 2px;
 }
+
+#count {
+  color: #7a8a7f;
+  font-size: 11px;
+  margin: 0 0 8px;
+}
+#load-more {
+  grid-column: 1 / -1;
+  min-height: 40px;
+}

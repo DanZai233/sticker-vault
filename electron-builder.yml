@@ -2,6 +2,9 @@ appId: com.electron.stickervault
 productName: StickerVault
 copyright: Copyright © 2026 DanZai233
 asar: true
+asarUnpack:
+  - node_modules/**
+  - src/ocr-host.cjs
 afterPack: scripts/verify-resources.cjs
 # Keep the storage location compatible with the first local release.
 extraMetadata:
@@ -21,6 +24,9 @@ extraResources:
       - '**/*'
   - from: vendor/native
     to: native
+    filter: ['**/*']
+  - from: vendor/ocr-data
+    to: ocr-data
     filter: ['**/*']
 artifactName: 'StickerVault-${version}-${os}-${arch}.${ext}'
 mac:
