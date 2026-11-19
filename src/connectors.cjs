@@ -227,6 +227,18 @@ class Connectors {
     const finish = async (code, error) => {
       if (!this.busy.has('wechat')) return;
       try {
+        let restoration = { recovered: 0, unreadable: 0 };
+        let restorationError = false;
+        try {
+          restoration = await require('./wechat-crypto.cjs').recoverEncryptedCache({
+            home: this.home,
+            account,
+            dataRoot: this.lib.data.connectors.wechat?.base,
+            cache: out,
+          });
+        } catch {
+          restorationError = true;
+        }
         const result = await this.lib.import([out], '微信');
         const r = { ...result, added: result.added + cached.added };
         const permission = /Operation not permitted|Permission denied|不允许|权限/i.test(stderr);
@@ -240,7 +252,7 @@ class Connectors {
         this.status('wechat', {
           status:
             code === 0
-              ? failed
+              ? failed || restoration.unreadable || restorationError
                 ? 'partial'
                 : 'ready'
               : r.added
@@ -256,7 +268,7 @@ class Connectors {
           lastScan: Date.now(),
           message:
             code === 0
-              ? `本次新增 ${r.added} 个 · 忽略重复 ${r.duplicates} 个${failed ? ' · 下载失败 ' + failed + ' 个' : ''}`
+              ? `本次新增 ${r.added} 个 · 忽略重复 ${r.duplicates} 个${failed ? ' · 下载失败 ' + failed + ' 个' : ''}${restoration.recovered ? ' · 还原加密原件 ' + restoration.recovered + ' 个' : ''}${restoration.unreadable ? ' · 不可识别资源 ' + restoration.unreadable + ' 个已跳过' : ''}${restorationError ? ' · 部分加密资源未能还原' : ''}`
               : permission
                 ? cachePermission
                   ? '表情原件已保留。请点「授权助手缓存」，允许访问助手缓存目录后继续同步。'
