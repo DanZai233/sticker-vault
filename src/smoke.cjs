@@ -29,12 +29,12 @@ module.exports = async ({ app, win, lib, snapshot, used, showPanel, fileFor, nat
       'document.querySelector("[data-filter=all]").click();document.querySelector("#search").value="收到";document.querySelector("#search").dispatchEvent(new Event("input"))',
     );
     assert.equal(await js('document.querySelectorAll(".card").length'), 1);
-    await js('document.querySelector(".card").click()');
+    await js('document.querySelector(".card-use").click()');
     await new Promise((r) => setTimeout(r, 350));
     assert.equal(await js('document.querySelector("#detail").open'), false);
     assert.ok(lib.data.items.some((i) => i.lastUsedAt));
     await js(
-      'document.querySelector(".card").dispatchEvent(new MouseEvent("dblclick",{bubbles:true}))',
+      'document.querySelector(".card-use").dispatchEvent(new MouseEvent("dblclick",{bubbles:true}))',
     );
     assert.equal(await js('document.querySelector("#detail").open'), true);
     await js(
@@ -43,7 +43,7 @@ module.exports = async ({ app, win, lib, snapshot, used, showPanel, fileFor, nat
     await new Promise((r) => setTimeout(r, 250));
     assert.ok(lib.data.items.some((i) => i.name === '已收到' && i.tags.includes('工作')));
     await js(
-      'document.querySelector("#search").value="";document.querySelector("#search").dispatchEvent(new Event("input"));document.querySelector("#select-mode").click();document.querySelector(".card").click()',
+      'document.querySelector("#search").value="";document.querySelector("#search").dispatchEvent(new Event("input"));document.querySelector("#select-mode").click();document.querySelector(".card-use").click()',
     );
     assert.match(await js('document.querySelector("#selection-count").textContent'), /1/);
     await js('document.querySelector("#cancel-select").click()');
