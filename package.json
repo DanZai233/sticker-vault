@@ -21,10 +21,14 @@
     "electron-builder": "^26.18.0",
     "prettier": "^3.10.1"
   },
-  "author": "DanZai233",
+  "author": {
+    "name": "DanZai233",
+    "email": "71169811+DanZai233@users.noreply.github.com"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/DanZai233/sticker-vault.git"
-  }
+  },
+  "desktopName": "stickervault"
 }

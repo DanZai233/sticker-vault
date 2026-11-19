@@ -13,7 +13,6 @@ files:
   - src/**
   - assets/*.png
   - package.json
-  - '!src/*smoke.cjs'
 extraResources:
   - from: vendor/wxemoticon
     to: wxemoticon

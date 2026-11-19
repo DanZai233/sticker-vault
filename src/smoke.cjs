@@ -1,7 +1,7 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const assert = require('node:assert/strict');
-module.exports = async ({ app, win, lib, snapshot }) => {
+module.exports = async ({ app, win, lib, snapshot, used, showPanel, fileFor, native }) => {
   try {
     const out = process.env.STICKER_EVIDENCE;
     await fs.mkdir(out, { recursive: true });
@@ -53,6 +53,24 @@ module.exports = async ({ app, win, lib, snapshot }) => {
       path.join(out, 'settings.png'),
       (await win.webContents.capturePage()).toPNG(),
     );
+    await js('document.querySelector("#settings .close").click()');
+    const item = lib.data.items.find((i) => i.animated);
+    const copy = await native.insert(fileFor(item.id), 0);
+    assert.equal(copy.copied, true);
+    await used(item.id);
+    await js('document.querySelector("[data-filter=recent]").click()');
+    assert.equal(await js('document.querySelectorAll(".card").length'), 1);
+    const panel = await showPanel();
+    await new Promise((r) => setTimeout(r, 300));
+    assert.equal(
+      await panel.webContents.executeJavaScript('document.querySelectorAll(".item").length'),
+      1,
+    );
+    await fs.writeFile(
+      path.join(out, 'quick-panel.png'),
+      (await panel.webContents.capturePage()).toPNG(),
+    );
+    panel.hide();
     await fs.writeFile(
       path.join(out, 'smoke.json'),
       JSON.stringify(
@@ -68,6 +86,9 @@ module.exports = async ({ app, win, lib, snapshot }) => {
             'multi-select',
             '820px no horizontal overflow',
             'settings dialog',
+            'native file URL clipboard',
+            'recent usage persistence and filter',
+            'tray quick panel renders recent item',
           ],
           untested: [
             'Native drag into WeChat/QQ/Douyin',

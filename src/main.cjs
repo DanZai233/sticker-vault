@@ -87,6 +87,7 @@ async function showPanel() {
   );
   panel.show();
   panel.focus();
+  return panel;
 }
 
 const fileFor = (id) => {
@@ -328,7 +329,7 @@ if (ownsLock)
       await require('./connector-smoke.cjs')({ app, win, lib, connectors, snapshot });
     }
     if (process.env.STICKER_SMOKE) {
-      await require('./smoke.cjs')({ app, win, lib, snapshot });
+      await require('./smoke.cjs')({ app, win, lib, snapshot, used, showPanel, fileFor, native });
     }
   });
 app.on('before-quit', () => {
