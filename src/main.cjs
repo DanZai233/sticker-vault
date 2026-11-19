@@ -277,6 +277,8 @@ if (ownsLock)
         used(id).catch(() => {});
       } catch (e) {
         event.sender.send('error', '拖出失败：' + e.message);
+      } finally {
+        if (!event.sender.isDestroyed()) event.sender.send('drag-ended');
       }
     });
     win = new BrowserWindow({
@@ -345,6 +347,12 @@ if (ownsLock)
       await require('./smoke.cjs')({ app, win, lib, snapshot, used, showPanel, fileFor, native });
     }
   });
+app.on('activate', () => {
+  if (win && !win.isDestroyed()) {
+    win.show();
+    win.focus();
+  }
+});
 app.on('before-quit', () => {
   quitting = true;
 });

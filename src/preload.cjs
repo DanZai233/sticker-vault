@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('vault', {
   removeFolder: (p) => ipcRenderer.invoke('folder-remove', p),
   scan: () => ipcRenderer.invoke('scan'),
   drag: (id) => ipcRenderer.send('drag', id),
+  onDragEnd: (fn) => ipcRenderer.on('drag-ended', fn),
   onChange: (fn) => ipcRenderer.on('changed', (_, s) => fn(s)),
   onError: (fn) => ipcRenderer.on('error', (_, s) => fn(s)),
 });

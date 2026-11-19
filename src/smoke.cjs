@@ -30,6 +30,12 @@ module.exports = async ({ app, win, lib, snapshot, used, showPanel, fileFor, nat
     );
     assert.equal(await js('document.querySelectorAll(".card").length'), 1);
     await js('document.querySelector(".card").click()');
+    await new Promise((r) => setTimeout(r, 350));
+    assert.equal(await js('document.querySelector("#detail").open'), false);
+    assert.ok(lib.data.items.some((i) => i.lastUsedAt));
+    await js(
+      'document.querySelector(".card").dispatchEvent(new MouseEvent("dblclick",{bubbles:true}))',
+    );
     assert.equal(await js('document.querySelector("#detail").open'), true);
     await js(
       'document.querySelector("#edit-name").value="已收到";document.querySelector("#edit-tags").value="工作, 回复";document.querySelector("#save").click()',
@@ -54,6 +60,10 @@ module.exports = async ({ app, win, lib, snapshot, used, showPanel, fileFor, nat
       (await win.webContents.capturePage()).toPNG(),
     );
     await js('document.querySelector("#settings .close").click()');
+    for (const i of lib.data.items) {
+      delete i.lastUsedAt;
+      delete i.useCount;
+    }
     const item = lib.data.items.find((i) => i.animated);
     const copy = await native.insert(fileFor(item.id), 0);
     assert.equal(copy.copied, true);

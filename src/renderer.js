@@ -1,3 +1,4 @@
+let copyTimer;
 const $ = (s) => document.querySelector(s),
   api = window.vault;
 let state = { items: [], folders: [] },
@@ -106,13 +107,35 @@ function render() {
     card.draggable = !selecting;
     card.ondragstart = (e) => {
       e.preventDefault();
+      clearTimeout(copyTimer);
+      resetDrop();
       api.drag(item.id);
     };
-    card.onclick = () => {
+    card.title = '单击复制原文件 · 双击或右键管理';
+    card.onclick = (event) => {
       if (selecting) {
         selected.has(item.id) ? selected.delete(item.id) : selected.add(item.id);
         render();
-      } else openDetail(item);
+      } else {
+        clearTimeout(copyTimer);
+        if (event.detail > 1) return;
+        const copy = () =>
+          action(async () => {
+            await api.copyOriginal(item.id);
+            toast('已复制原文件，请在聊天窗口粘贴');
+          });
+        if (event.detail === 0) copy();
+        else copyTimer = setTimeout(copy, 260);
+      }
+    };
+    card.ondblclick = () => {
+      clearTimeout(copyTimer);
+      if (!selecting) openDetail(item);
+    };
+    card.oncontextmenu = (event) => {
+      event.preventDefault();
+      clearTimeout(copyTimer);
+      if (!selecting) openDetail(item);
     };
     grid.append(card);
   }
@@ -268,6 +291,17 @@ $('#scan').onclick = () =>
     }
   });
 let depth = 0;
+function resetDrop() {
+  depth = 0;
+  $('#drop-overlay').hidden = true;
+}
+window.addEventListener('blur', resetDrop);
+document.addEventListener('dragend', resetDrop);
+document.addEventListener('pointerup', resetDrop);
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') resetDrop();
+});
+api.onDragEnd(resetDrop);
 document.addEventListener('dragenter', (e) => {
   if (!e.dataTransfer.types.includes('Files')) return;
   e.preventDefault();
@@ -283,8 +317,7 @@ document.addEventListener('dragleave', () => {
 });
 document.addEventListener('drop', (e) => {
   e.preventDefault();
-  depth = 0;
-  $('#drop-overlay').hidden = true;
+  resetDrop();
   const paths = [...e.dataTransfer.files].map((f) => api.pathFor(f)).filter(Boolean);
   if (paths.length) doImport(paths);
 });
