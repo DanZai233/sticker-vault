@@ -1,0 +1,30 @@
+{
+  "name": "sticker-vault",
+  "productName": "表情仓",
+  "version": "0.3.0",
+  "description": "本地表情素材管理器",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test test/*.test.cjs",
+    "package": "node scripts/package.cjs",
+    "dist": "electron-builder",
+    "prepare:helper": "node scripts/prepare-helper.cjs",
+    "check": "node --check src/main.cjs && node --check src/connectors.cjs && node --check src/douyin.cjs && node --check src/renderer.js && npm test",
+    "build:native": "node scripts/build-native.cjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@electron/packager": "^20.3.0",
+    "electron": "^42.11.18",
+    "electron-builder": "^26.18.0",
+    "prettier": "^3.10.1"
+  },
+  "author": "DanZai233",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DanZai233/sticker-vault.git"
+  }
+}

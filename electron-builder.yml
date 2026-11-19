@@ -1,0 +1,47 @@
+appId: com.electron.stickervault
+productName: StickerVault
+copyright: Copyright © 2026 DanZai233
+asar: true
+# Keep the storage location compatible with the first local release.
+extraMetadata:
+  name: sticker-vault
+  productName: 表情仓
+directories:
+  output: dist
+  buildResources: assets
+files:
+  - src/**
+  - assets/*.png
+  - package.json
+  - '!src/*smoke.cjs'
+extraResources:
+  - from: vendor/wxemoticon
+    to: wxemoticon
+    filter:
+      - '**/*'
+  - from: vendor/native
+    to: native
+    filter: ['**/*']
+artifactName: 'StickerVault-${version}-${os}-${arch}.${ext}'
+mac:
+  category: public.app-category.utilities
+  icon: assets/icon.icns
+  identity: null
+  target:
+    - dmg
+    - zip
+win:
+  icon: assets/icon.ico
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+linux:
+  icon: assets/icon.png
+  category: Utility
+  target:
+    - AppImage
+    - deb

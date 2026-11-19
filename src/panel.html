@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' file: data:; style-src 'self'; script-src 'self'"
+    />
+    <title>快捷表情</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <header><b>表情仓</b><button id="open-main">打开素材库 ↗</button></header>
+    <input id="search" aria-label="搜索表情" placeholder="搜索表情、标签…" />
+    <nav>
+      <button data-filter="recent" class="active">最近使用</button
+      ><button data-filter="favorite">常用</button><button data-filter="all">全部</button>
+    </nav>
+    <div id="items"></div>
+    <footer id="hint" role="status">点击复制原文件；macOS 授权后可自动粘贴</footer>
+    <script src="panel.js"></script>
+  </body>
+</html>

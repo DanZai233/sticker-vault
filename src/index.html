@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; img-src 'self' file: data:; style-src 'self'; script-src 'self'; connect-src 'none'"
+    />
+    <title>表情仓</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <aside>
+      <div class="brand"><span class="logo">▦</span> 表情仓 <small>LOCAL</small></div>
+      <button class="import primary">＋ 导入表情</button>
+      <div class="section-label">素材库</div>
+      <nav>
+        <button data-filter="all" class="active">▦　全部表情 <span id="total">0</span></button
+        ><button data-filter="recent">◷　最近使用</button
+        ><button data-filter="favorite">♡　我的常用</button
+        ><button data-filter="animated">▷　动态表情</button>
+      </nav>
+      <div class="section-label">来源</div>
+      <nav id="sources"></nav>
+      <div class="sidebar-bottom">
+        <button id="connections">⇄　收集文件夹</button>
+        <p>原文件保存在本机<br />⌘ / Ctrl + Shift + E 唤出</p>
+      </div>
+    </aside>
+    <main>
+      <header>
+        <div>
+          <div class="eyebrow">你的日常表达，收在一起</div>
+          <h1 id="heading">全部表情</h1>
+        </div>
+        <div class="header-actions">
+          <span class="local-dot">本地素材库</span><button id="manage">收集设置</button>
+        </div>
+      </header>
+      <div class="toolbar">
+        <label class="search"
+          ><span>⌕</span
+          ><input id="search" placeholder="搜索名称、标签或来源…" aria-label="搜索表情" /><kbd>
+            /
+          </kbd></label
+        ><select id="sort" aria-label="排序">
+          <option value="new">最近导入</option>
+          <option value="used">最近使用</option>
+          <option value="name">名称排序</option>
+          <option value="size">文件大小</option></select
+        ><button id="select-mode">多选</button>
+      </div>
+      <div class="summary">
+        <span id="count">正在加载素材库…</span><span>拖出原文件 · 保留完整动画</span>
+      </div>
+      <div id="bulk" hidden>
+        <span id="selection-count"></span><button id="bulk-export">导出原文件</button
+        ><button id="bulk-remove">移除</button><button id="cancel-select">取消多选</button>
+      </div>
+      <section id="grid" aria-label="表情列表"></section>
+      <section id="empty" hidden>
+        <div class="empty-icon">☺</div>
+        <h2>给你的表达，找个家</h2>
+        <p>把 GIF、PNG、JPG 或 WebP 拖进来。<br />原始文件完整保存，动图依然会动。</p>
+        <button class="import primary">导入第一批表情</button
+        ><button id="empty-folder">关联收集文件夹</button
+        ><small>在「自动收集」中连接 QQ、微信和抖音收藏。</small>
+      </section>
+      <footer><span>GIF · 动态 WebP · APNG · PNG · JPG</span><span id="storage">0 KB</span></footer>
+    </main>
+    <dialog id="detail">
+      <div class="dialog-top">
+        <h2>表情详情</h2>
+        <button class="close" aria-label="关闭">×</button>
+      </div>
+      <div class="detail-layout">
+        <div class="detail-image"><img id="detail-img" alt="表情原图" draggable="true" /></div>
+        <div>
+          <label>名称<input id="edit-name" /></label
+          ><label
+            >标签 <small>用逗号分隔</small><input id="edit-tags" placeholder="开心, 打工, 猫猫"
+          /></label>
+          <p id="metadata"></p>
+          <button id="save" class="primary">保存修改</button
+          ><button id="favorite">♡ 设为常用</button>
+        </div>
+      </div>
+      <div class="detail-bottom">
+        <button id="export-one">导出原文件</button><button id="reveal">在文件夹中显示</button
+        ><button id="copy-original">复制原文件</button><button id="copy-path">复制文件路径</button
+        ><button id="remove" class="danger">移除</button>
+      </div>
+      <p class="hint">
+        拖动上方原图到聊天窗口。接收应用可能将其作为文件发送，动画显示取决于该应用的支持。
+      </p>
+    </dialog>
+    <dialog id="settings">
+      <div class="dialog-top">
+        <h2>自动收集</h2>
+        <button class="close" aria-label="关闭">×</button>
+      </div>
+      <p class="settings-intro">从个人收藏读取原件，自动去重，保留完整动画。</p>
+      <div class="paste-access">
+        <button id="authorize-paste">启用 macOS 光标粘贴</button
+        ><small>需辅助功能权限；未授权也可复制原文件后手动粘贴。</small>
+      </div>
+      <div id="connector-list"></div>
+      <h3>本地文件夹</h3>
+      <div class="connection-note">
+        QQ 每 30 秒检查已缓存收藏；微信首次需要登录助手副本，成功后每 5
+        分钟同步；抖音在登录窗口打开收藏表情面板时收集已加载列表。
+      </div>
+      <div class="add-folder">
+        <select id="folder-source" aria-label="文件夹来源">
+          <option>本地导入</option>
+          <option>微信</option>
+          <option>QQ</option>
+          <option>抖音</option>
+          <option>其他</option></select
+        ><button id="add-folder" class="primary">＋ 关联文件夹</button
+        ><button id="scan">立即扫描</button>
+      </div>
+      <div id="folders"></div>
+      <p class="hint">仅在应用运行时收集。移除关联不会删除已入库表情。</p>
+    </dialog>
+    <div id="toast" role="status" hidden></div>
+    <div id="drop-overlay" hidden>松开，收藏你的表情 <small>原文件导入 · 自动去重</small></div>
+    <script src="renderer.js"></script>
+  </body>
+</html>
