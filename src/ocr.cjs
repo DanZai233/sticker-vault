@@ -142,6 +142,8 @@ class OcrQueue {
     await this.lib.run(async () => {
       this.lib.data.settings ??= {};
       this.lib.data.settings.ocrEnabled = enabled;
+      this.lib.data.settingsUpdatedAt ??= {};
+      this.lib.data.settingsUpdatedAt.ocrEnabled = Date.now();
       await this.lib.save();
     });
     if (enabled) {

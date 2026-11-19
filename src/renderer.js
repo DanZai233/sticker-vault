@@ -245,7 +245,10 @@ $('#cancel-select').onclick = () => {
 };
 for (const b of document.querySelectorAll('.close')) b.onclick = () => b.closest('dialog').close();
 for (const id of ['manage', 'connections', 'empty-folder'])
-  $('#' + id).onclick = () => $('#settings').showModal();
+  $('#' + id).onclick = () => {
+    fillTransferForm();
+    $('#settings').showModal();
+  };
 $('#save').onclick = () =>
   action(async () => {
     await api.update(current, {
@@ -500,6 +503,7 @@ function renderPreferences() {
   $('#startup-description').textContent = startup.message || '正在读取系统启动设置…';
   $('#startup-settings').hidden = !startup.requiresApproval && !startup.blocked;
   $('#startup-update').hidden = !startup.needsUpdate;
+  renderTransferSettings();
 }
 async function setPreference(kind, enabled) {
   preferenceBusy = true;
@@ -530,4 +534,129 @@ api.onOcrUpdate((update) => {
     if ($('#search').value.trim()) render();
   }
   renderPreferences();
+});
+
+let transferUiBusy = false;
+function fillTransferForm() {
+  const dav = state.transferState?.dav;
+  if (!dav) return;
+  $('#dav-url').value = dav.url || '';
+  $('#dav-username').value = dav.username || '';
+  $('#dav-password').value = '';
+}
+function renderTransferSettings() {
+  const value = state.transferState || {},
+    dav = value.dav || {},
+    task = value.transfer || {};
+  const busy = transferUiBusy || task.busy;
+  for (const id of [
+    'backup-export',
+    'backup-import',
+    'dav-save',
+    'dav-test',
+    'dav-sync',
+    'dav-forget',
+    'dav-url',
+    'dav-username',
+    'dav-password',
+  ])
+    $('#' + id).disabled = !!busy;
+  $('#transfer-cancel').hidden = !(task.busy && ['sync', 'test'].includes(task.kind));
+  $('#dav-password').placeholder = dav.hasPassword
+    ? '已保存密码；留空沿用'
+    : '尚未保存密码（匿名访问可留空）';
+  $('#dav-credential-status').textContent = dav.message || '';
+  $('#dav-forget').hidden = !dav.hasPassword;
+  $('#dav-last-sync').textContent = dav.lastSyncAt
+    ? '上次成功同步：' + new Date(dav.lastSyncAt).toLocaleString()
+    : '尚未成功同步；不会自动同步。';
+  const labels = {
+    preparing: '正在准备…',
+    connecting: '正在连接 WebDAV…',
+    checking: '正在验证远端防覆盖能力…',
+    downloading: '正在取回远端备份…',
+    validating: '正在校验备份原件…',
+    exporting: '正在准备完整备份…',
+    uploading: '正在上传合并后的备份…',
+    conflict: '远端已更新，重新合并后再试…',
+  };
+  $('#transfer-status').textContent = task.busy
+    ? (labels[task.phase] || '正在处理…') +
+      (task.byteTotal
+        ? ` ${size(task.bytes || 0)} / ${size(task.byteTotal)}`
+        : task.total
+          ? ` ${task.done || 0} / ${task.total}`
+          : '')
+    : task.message || '仅手动同步，不自动上传或下载。';
+  const hints = value.migrationHints || {},
+    lines = [];
+  for (const f of hints.folders || []) lines.push(`文件夹：${f.source || '本地导入'} · ${f.path}`);
+  for (const c of hints.connections || [])
+    if (c.enabled) lines.push(`平台：${c.provider} · ${c.base || '重新登录或授权目录'}`);
+  if (hints.startupRequested) lines.push('原设备曾开启登录自启；请在本机自行选择是否开启。');
+  if (hints.webdav?.url && !dav.url)
+    lines.push('WebDAV：' + hints.webdav.url + '（需重新填写密码）');
+  $('#migration-hints').hidden = !lines.length;
+  $('#migration-description').textContent = lines.join('\n');
+}
+async function transferAction(fn) {
+  transferUiBusy = true;
+  renderTransferSettings();
+  try {
+    const result = await fn();
+    if (result?.message) toast(result.message);
+    return result;
+  } catch (error) {
+    toast('操作未完成：' + error.message);
+  } finally {
+    transferUiBusy = false;
+    renderTransferSettings();
+  }
+}
+async function saveDavForm() {
+  const dav = await api.saveWebDav({
+    url: $('#dav-url').value,
+    username: $('#dav-username').value,
+    password: $('#dav-password').value,
+  });
+  state.transferState ??= {};
+  state.transferState.dav = dav;
+  $('#dav-password').value = '';
+  return dav;
+}
+$('#backup-export').onclick = () => transferAction(() => api.exportBackup());
+$('#backup-import').onclick = () =>
+  transferAction(async () => {
+    const result = await api.importBackup();
+    if (result && !result.canceled) {
+      state.transferState = await api.transferState();
+      fillTransferForm();
+    }
+    return result;
+  });
+$('#dav-save').onclick = () =>
+  transferAction(async () => {
+    await saveDavForm();
+    return { message: '连接已保存，不会自动同步。' };
+  });
+$('#dav-test').onclick = () =>
+  transferAction(async () => {
+    await saveDavForm();
+    return api.testWebDav();
+  });
+$('#dav-sync').onclick = () =>
+  transferAction(async () => {
+    await saveDavForm();
+    return api.syncWebDav();
+  });
+$('#dav-forget').onclick = () =>
+  transferAction(async () => {
+    state.transferState.dav = await api.forgetWebDavPassword();
+    $('#dav-password').value = '';
+    return { message: '已忘记密码。' };
+  });
+$('#transfer-cancel').onclick = () => api.cancelTransfer();
+api.onTransferUpdate((update) => {
+  state.transferState = update;
+  renderTransferSettings();
 });

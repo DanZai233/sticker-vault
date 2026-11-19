@@ -3,6 +3,10 @@ const noop = () => {};
 const resolved = async () => ({ copied: true });
 const fixture = {
   platform: 'win32',
+  transferState: {
+    dav: { url: 'https://example.test/dav/', username: 'test', hasPassword: false },
+    transfer: { busy: false, phase: 'idle' },
+  },
   ocr: { enabled: true, total: 0, done: 0, pending: 0, failed: 0 },
   startup: { enabled: false, requested: false, supported: true, message: 'Windows 启动项' },
   items: [],
@@ -26,6 +30,38 @@ contextBridge.exposeInMainWorld('vault', {
   },
   operations: async () => operations,
   onOcrUpdate: noop,
+  onTransferUpdate: noop,
+  transferState: async () => fixture.transferState,
+  saveWebDav: async (input) => {
+    operations.push({ type: 'dav-save', url: input.url });
+    fixture.transferState.dav = {
+      url: input.url,
+      username: input.username,
+      hasPassword: !!input.password,
+    };
+    return fixture.transferState.dav;
+  },
+  forgetWebDavPassword: async () => {
+    fixture.transferState.dav.hasPassword = false;
+    return fixture.transferState.dav;
+  },
+  exportBackup: async () => {
+    operations.push({ type: 'backup-export' });
+    return { message: '已导出测试备份' };
+  },
+  importBackup: async () => {
+    operations.push({ type: 'backup-import' });
+    return { message: '已合并测试备份' };
+  },
+  testWebDav: async () => {
+    operations.push({ type: 'dav-test' });
+    return { message: '连接成功' };
+  },
+  syncWebDav: async () => {
+    operations.push({ type: 'dav-sync' });
+    return { message: '手动同步完成' };
+  },
+  cancelTransfer: noop,
   setOcrEnabled: async (enabled) => ({ enabled, total: 0, done: 0, pending: 0, failed: 0 }),
   setStartupEnabled: async (enabled) => ({ enabled, requested: enabled, supported: true }),
   openStartupSettings: resolved,

@@ -11,6 +11,7 @@ const {
   Menu,
   screen,
   utilityProcess,
+  safeStorage,
 } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
@@ -23,6 +24,7 @@ const { StartupControl } = require('./startup.cjs');
 const { OcrQueue } = require('./ocr.cjs');
 const { OcrRunner } = require('./ocr-runner.cjs');
 const { OcrImageExtractor } = require('./ocr-image.cjs');
+const { Transfers } = require('./transfer.cjs');
 let win,
   lib,
   timer,
@@ -36,6 +38,7 @@ let win,
   ocr,
   imageExtractor,
   startupControl,
+  transfers,
   startupState = { supported: false, enabled: false };
 if (process.env.STICKER_TEST_ROOT) app.setPath('userData', process.env.STICKER_TEST_ROOT);
 const ownsLock = app.requestSingleInstanceLock();
@@ -56,6 +59,7 @@ const snapshot = () => {
     platform: process.platform,
     startup: startupState,
     ocr: ocr?.summary(),
+    transferState: transfers?.snapshot(),
     items: lib.data.items.map((i) => ({
       ...i,
       url: pathToFileURL(path.join(lib.root, 'originals', i.file)).href,
@@ -171,6 +175,62 @@ if (ownsLock)
       },
       schedule: !process.env.STICKER_SMOKE && !process.env.STICKER_CONNECTOR_SMOKE,
     }).init();
+    transfers = await new Transfers(lib, {
+      root: app.getPath('userData'),
+      safeStorage,
+      config: () => ({
+        startupRequested: !!startupState.requested,
+        webdav: transfers?.settings.config.url
+          ? { url: transfers.settings.config.url, username: transfers.settings.config.username }
+          : null,
+      }),
+      notify: (update) => {
+        if (win && !win.isDestroyed()) win.webContents.send('transfer-update', update);
+      },
+      afterMerge: () => {
+        if (lib.data.settings?.ocrEnabled !== false) ocr.arm(1000);
+        else if (!ocr.running) ocr.engine.stop?.();
+        notify();
+      },
+    }).init();
+    ipcMain.handle('transfer-state', () => transfers.snapshot());
+    ipcMain.handle('webdav-save', (_, input) => transfers.save(input));
+    ipcMain.handle('webdav-forget', () => transfers.forget());
+    ipcMain.handle('webdav-test', () => transfers.test());
+    ipcMain.handle('webdav-sync', () => transfers.sync());
+    ipcMain.on('transfer-cancel', () => transfers.cancel());
+    ipcMain.handle('backup-export', async () => {
+      const selected = await dialog.showSaveDialog(win, {
+        title: '导出完整表情仓备份',
+        defaultPath: 'StickerVault-backup-' + new Date().toISOString().slice(0, 10) + '.zip',
+        filters: [{ name: '表情仓完整备份', extensions: ['zip'] }],
+      });
+      if (selected.canceled || !selected.filePath) return null;
+      return transfers.export(selected.filePath);
+    });
+    ipcMain.handle('backup-import', async () => {
+      const selected = await dialog.showOpenDialog(win, {
+        title: '导入完整表情仓备份',
+        properties: ['openFile'],
+        filters: [{ name: '表情仓完整备份', extensions: ['zip'] }],
+      });
+      if (selected.canceled) return null;
+      return transfers.import(selected.filePaths[0], async (manifest) => {
+        const answer = await dialog.showMessageBox(win, {
+          type: 'question',
+          title: '合并备份',
+          message: `备份含 ${manifest.items.length} 个表情，将合并到当前 ${lib.data.items.length} 个表情。`,
+          detail:
+            '保留现有原件，重复图片合并名称、标签、收藏和排序。不会传播删除。导入前保存本机配置恢复点；目录、平台登录和系统自启需要在本机重新配置。备份不包含密码或登录态。',
+          buttons: ['取消', '合并导入'],
+          defaultId: 1,
+          cancelId: 0,
+          checkboxLabel: '合并便携设置（如 OCR 开关）',
+          checkboxChecked: true,
+        });
+        return answer.response === 1 ? { restoreSettings: answer.checkboxChecked } : null;
+      });
+    });
     ipcMain.handle('ocr-enabled', (_, enabled) => ocr.setEnabled(enabled));
     ipcMain.handle('startup-enabled', async (_, enabled) => {
       startupState = await startupControl.set(enabled);
@@ -433,6 +493,7 @@ app.on('activate', () => {
 });
 app.on('before-quit', () => {
   quitting = true;
+  transfers?.cancel();
   ocr?.stop();
   imageExtractor?.stop();
 });

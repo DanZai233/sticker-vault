@@ -132,7 +132,13 @@ class Library {
       const item = this.data.items.find((i) => i.id === id);
       if (!item) throw Error('表情不存在');
       for (const key of ['name', 'tags', 'favorite', 'lastUsedAt', 'useCount'])
-        if (key in patch) item[key] = patch[key];
+        if (key in patch) {
+          item[key] = patch[key];
+          if (['name', 'tags', 'favorite'].includes(key)) {
+            item.fieldUpdatedAt ??= {};
+            item.fieldUpdatedAt[key] = Date.now();
+          }
+        }
       await this.save();
     });
   }

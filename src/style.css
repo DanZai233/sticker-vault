@@ -637,3 +637,57 @@ h3 {
 .card-use:focus-visible {
   outline-offset: -3px;
 }
+
+#settings {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.backup-settings {
+  border-block: 1px solid var(--line);
+  padding: 12px 0 20px;
+  margin: 18px 0;
+}
+.transfer-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+.dav-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.dav-fields label:first-child {
+  grid-column: 1 / -1;
+}
+.dav-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+.dav-fields input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+}
+#transfer-status {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+#migration-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#migration-hints summary {
+  cursor: pointer;
+  font-size: 12px;
+}
+@media (max-width: 600px) {
+  .dav-fields {
+    grid-template-columns: 1fr;
+  }
+}

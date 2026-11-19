@@ -16,6 +16,8 @@ module.exports = async (context) => {
   await fs.access(
     path.join(root, 'app.asar.unpacked/node_modules/tesseract.js/src/worker-script/node/index.js'),
   );
+  for (const dependency of ['yauzl', 'yazl'])
+    await fs.access(path.join(root, 'app.asar.unpacked/node_modules', dependency, 'index.js'));
   if (!['darwin', 'win32'].includes(context.electronPlatformName)) return;
   const file = path.join(
     root,

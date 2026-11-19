@@ -56,6 +56,40 @@ app.whenReady().then(async () => {
     assert.equal(await js('state.startup.requested'), true);
     await js('document.querySelector("#startup-enabled").onchange({target:{checked:false}})');
     assert.equal(await js('state.startup.requested'), false);
+    assert.equal(
+      await js('window.vault.operations().then(ops=>ops.filter(op=>op.type==="dav-sync").length)'),
+      0,
+    );
+    await js(
+      'document.querySelector("#dav-url").value="https://example.test/manual/";document.querySelector("#dav-username").value="name";document.querySelector("#dav-password").value="test-secret";document.querySelector("#dav-save").onclick()',
+    );
+    assert.equal(await js('document.querySelector("#dav-password").value'), '');
+    assert.equal(
+      await js('window.vault.operations().then(ops=>ops.filter(op=>op.type==="dav-sync").length)'),
+      0,
+    );
+    await js('document.querySelector("#dav-sync").onclick()');
+    assert.equal(
+      await js('window.vault.operations().then(ops=>ops.filter(op=>op.type==="dav-sync").length)'),
+      1,
+    );
+    await js('document.querySelector("#backup-export").onclick()');
+    await js('document.querySelector("#backup-import").onclick()');
+    assert.equal(
+      await js(
+        'window.vault.operations().then(ops=>ops.filter(op=>op.type==="backup-import").length)',
+      ),
+      1,
+    );
+    await js(
+      'state.transferState.transfer={busy:true,kind:"sync",phase:"uploading",bytes:100,byteTotal:200};renderTransferSettings()',
+    );
+    assert.equal(await js('document.querySelector("#dav-sync").disabled'), true);
+    assert.equal(await js('document.querySelector("#transfer-cancel").hidden'), false);
+    await js('state.transferState.transfer={busy:false};renderTransferSettings()');
+    console.log(
+      'TRANSFER_UI_PASS: export/import controls, explicit manual sync only, password cleared, progress and cancellation',
+    );
     await js('state.platform="darwin";render()');
     assert.equal(await js('document.querySelector(".paste-access").hidden'), false);
     assert.ok(
