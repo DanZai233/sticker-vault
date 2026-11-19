@@ -50,22 +50,11 @@ const assets = {
   try {
     const archive = path.join(temp, name);
     await fs.writeFile(archive, bytes);
-    if (platform === 'win32' && process.platform === 'win32') {
-      execFileSync(
-        'powershell.exe',
-        [
-          '-NoProfile',
-          '-NonInteractive',
-          '-Command',
-          'Expand-Archive -LiteralPath $env:STICKER_HELPER_ARCHIVE -DestinationPath $env:STICKER_HELPER_DEST',
-        ],
-        {
-          env: { ...process.env, STICKER_HELPER_ARCHIVE: archive, STICKER_HELPER_DEST: temp },
-          stdio: 'inherit',
-          windowsHide: true,
-        },
-      );
-    } else execFileSync('tar', ['-xf', archive, '-C', temp]);
+    const tar =
+      process.platform === 'win32'
+        ? path.join(process.env.SystemRoot || 'C:/Windows', 'System32', 'tar.exe')
+        : 'tar';
+    execFileSync(tar, ['-xf', archive, '-C', temp]);
     const executable = platform === 'win32' ? 'wxemoticon.exe' : 'wxemoticon';
     await fs.copyFile(path.join(temp, executable), path.join(dir, executable));
     if (platform === 'darwin') await fs.chmod(path.join(dir, executable), 0o755);
