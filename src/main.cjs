@@ -121,6 +121,19 @@ if (ownsLock)
     lib = await new Library(path.join(app.getPath('userData'), 'vault')).init();
     connectors = new Connectors(lib, notify);
     douyin = new DouyinConnector(connectors);
+    ipcMain.handle('wechat-cache-authorize', async () => {
+      const d = await dialog.showOpenDialog(win, {
+        title: '授权微信助手缓存',
+        message: '允许读取并更新微信助手的本地缓存目录。这个目录不包含聊天记录。',
+        defaultPath: path.join(
+          app.getPath('home'),
+          'Library/Containers/com.tencent.xinWeChat/Data/Documents/export-wechat-emoji',
+        ),
+        buttonLabel: '允许助手缓存',
+        properties: ['openDirectory'],
+      });
+      if (!d.canceled) return connectors.wechat();
+    });
     ipcMain.handle('connector-authorize', async (_, id) => {
       if (!['qq', 'wechat'].includes(id)) throw Error('未知来源');
       const defaultPath = path.join(

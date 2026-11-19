@@ -209,7 +209,10 @@ class Connectors {
     );
     this.wechatChild = child;
     let stderr = '';
-    child.stdout.on('data', () => {});
+    let stdout = '';
+    child.stdout.on('data', (b) => {
+      stdout = (stdout + b.toString()).slice(-32768);
+    });
     child.stderr.on('data', (b) => {
       stderr = (stderr + b.toString()).slice(-6000);
       const safe = stderr.replace(/[a-fA-F0-9]{32,}/g, '[redacted]');
@@ -229,10 +232,17 @@ class Connectors {
         const permission = /Operation not permitted|Permission denied|不允许|权限/i.test(stderr);
         const waiting = /退出|WECHAT_RUNNING|running|微信.*运行/i.test(stderr);
         const timeout = /超时|timeout/i.test(stderr);
+        const cachePermission = permission && /缓存目录/.test(stderr);
+        let failed = 0;
+        try {
+          failed = Number(JSON.parse(stdout).failed) || 0;
+        } catch {}
         this.status('wechat', {
           status:
             code === 0
-              ? 'ready'
+              ? failed
+                ? 'partial'
+                : 'ready'
               : r.added
                 ? 'partial'
                 : permission
@@ -241,13 +251,16 @@ class Connectors {
                     ? 'waiting'
                     : 'error',
           waitingForExit: code !== 0 && waiting,
+          needsCacheGrant: cachePermission,
           initialized: code === 0 || !!this.lib.data.connectors.wechat.initialized,
           lastScan: Date.now(),
           message:
             code === 0
-              ? `本次新增 ${r.added} 个 · 忽略重复 ${r.duplicates} 个`
+              ? `本次新增 ${r.added} 个 · 忽略重复 ${r.duplicates} 个${failed ? ' · 下载失败 ' + failed + ' 个' : ''}`
               : permission
-                ? '微信助手读取被 macOS 拒绝。请点「授权目录」选择微信数据目录后重试。'
+                ? cachePermission
+                  ? '表情原件已保留。请点「授权助手缓存」，允许访问助手缓存目录后继续同步。'
+                  : '微信助手读取被 macOS 拒绝。请点「授权目录」选择微信数据目录后重试。'
                 : waiting
                   ? '等待退出正在运行的微信；退出后会自动继续，并打开微信副本。'
                   : timeout

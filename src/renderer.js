@@ -350,6 +350,11 @@ function renderConnectors() {
     row.append(head, el('p', '', description));
     if (s.message) row.append(el('p', 'connector-message', s.message));
     const actions = el('div', 'connector-actions');
+    if (id === 'wechat' && s.needsCacheGrant) {
+      const cache = el('button', 'primary', '授权助手缓存');
+      cache.onclick = () => action(() => api.authorizeWechatCache());
+      actions.append(cache);
+    }
     let account;
     if (id === 'wechat' && s.accounts?.length > 1) {
       account = el('select');

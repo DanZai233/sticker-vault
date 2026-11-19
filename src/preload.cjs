@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 contextBridge.exposeInMainWorld('vault', {
   authorizeConnector: (id) => ipcRenderer.invoke('connector-authorize', id),
+  authorizeWechatCache: () => ipcRenderer.invoke('wechat-cache-authorize'),
   syncConnector: (id, account) => ipcRenderer.invoke('connector-sync', id, account),
   disableConnector: (id) => ipcRenderer.invoke('connector-disable', id),
   copyOriginal: (id) => ipcRenderer.invoke('copy-original', id),

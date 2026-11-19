@@ -543,6 +543,7 @@ label small {
 }
 .connector-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .connector-actions select {
