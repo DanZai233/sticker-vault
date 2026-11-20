@@ -179,3 +179,19 @@ test('platform advice distinguishes Windows WeChat 4.x, QQ NT, macOS helper and 
   assert.match(connectorHelp('qq', 'win32').join(' '), /Ori/);
   assert.match(connectorHelp('douyin', 'darwin').join(' '), /白屏/);
 });
+test('automatic unsupported files produce useful diagnostics without repeated-history spam', async (t) => {
+  const { root, lib } = await fixture(t),
+    unknown = path.join(root, 'unsupported.dat');
+  await fs.writeFile(unknown, 'not an image');
+  const first = await lib.import([unknown], '微信', { automatic: true });
+  assert.ok(first.reportId);
+  assert.equal(first.actionableSkipped, 1);
+  await lib.import([image], '手动导入');
+  const second = await lib.import([unknown], '微信', { automatic: true });
+  assert.equal(second.reportId, first.reportId);
+  const other = path.join(root, 'new.png');
+  await fs.writeFile(other, Buffer.concat([await fs.readFile(image), Buffer.from([1])]));
+  const next = await lib.import([other], '微信', { automatic: true });
+  assert.ok(next.reportId);
+  assert.notEqual(next.reportId, first.reportId);
+});

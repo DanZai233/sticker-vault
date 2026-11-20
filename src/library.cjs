@@ -193,6 +193,7 @@ class Library {
         restored: report.counts.restored,
         duplicates: report.counts.duplicate,
         skipped: report.counts.skipped,
+        actionableSkipped: report.actionableSkipped,
         failed: report.counts.failed,
         errors,
         reportId,

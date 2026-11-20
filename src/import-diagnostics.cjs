@@ -73,8 +73,20 @@ class ImportReport {
       omitted: this.omitted,
     };
   }
+  get actionableSkipped() {
+    return ['unsupported', 'too_large', 'empty', 'depth', 'symlink'].reduce(
+      (total, code) => total + (this.reasons[code] || 0),
+      0,
+    );
+  }
   async persist(lib, { automatic = false } = {}) {
-    if (automatic && !this.counts.added && !this.counts.restored && !this.counts.failed)
+    if (
+      automatic &&
+      !this.counts.added &&
+      !this.counts.restored &&
+      !this.counts.failed &&
+      !this.actionableSkipped
+    )
       return null;
     const summaries = lib.data.importReports || [];
     const signature = crypto
@@ -85,19 +97,15 @@ class ImportReport {
           counts: this.counts,
           reasons: this.reasons,
           issues: this.details
-            .filter((item) => item.status === 'failed')
+            .filter((item) => ['failed', 'skipped'].includes(item.status))
             .map((item) => [item.path, item.code, item.error]),
         }),
       )
       .digest('hex');
-    if (
-      automatic &&
-      !this.counts.added &&
-      !this.counts.restored &&
-      summaries[0]?.signature === signature &&
-      this.createdAt - summaries[0].createdAt < 300000
-    )
-      return summaries[0].id;
+    const recent = summaries.find(
+      (report) => report.signature === signature && this.createdAt - report.createdAt < 300000,
+    );
+    if (automatic && !this.counts.added && !this.counts.restored && recent) return recent.id;
     const directory = path.join(lib.root, 'reports');
     await fs.mkdir(directory, { recursive: true });
     const file = path.join(directory, this.id + '.json');

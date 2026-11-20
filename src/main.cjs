@@ -141,7 +141,14 @@ async function scan() {
           restoreTrash: false,
           automatic: true,
         });
-        folder.error = '';
+        folder.error = r.failed ? `${r.failed} 项读取失败，请查看诊断` : '';
+        folder.lastResult = {
+          added: r.added,
+          duplicates: r.duplicates,
+          skipped: r.skipped,
+          failed: r.failed,
+        };
+        if (r.reportId) folder.lastReport = r.reportId;
         folder.lastScan = Date.now();
         if (r.added) notify();
       } catch (e) {

@@ -291,6 +291,14 @@ function renderFolders() {
     const b = el('button', '', '取消关联');
     b.onclick = () => action(() => api.removeFolder(f.path));
     row.append(text, b);
+    if (f.lastReport) {
+      const report = el('button', '', '查看诊断');
+      report.onclick = () => {
+        if ($('#settings').open) $('#settings').close();
+        openReport(f.lastReport);
+      };
+      row.append(report);
+    }
     box.append(row);
   }
 }

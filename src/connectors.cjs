@@ -91,7 +91,7 @@ class Connectors {
       this.status('qq', {
         status: r.errors.length ? 'partial' : 'ready',
         lastScan: Date.now(),
-        message: `${roots.length} 个账号缓存 · 本次新增 ${r.added} 个 · 忽略重复 ${r.duplicates} 个${r.errors.length ? ' · 部分文件读取失败' : ''}`,
+        message: `${roots.length} 个账号缓存 · 本次新增 ${r.added} 个 · 忽略重复 ${r.duplicates} 个${r.skipped ? ' · 跳过 ' + r.skipped + ' 项' : ''}${r.errors.length ? ' · 部分文件读取失败，请查看导入诊断' : ''}`,
         total: this.lib.data.items.filter((i) => i.source === 'QQ').length,
       });
     } catch (e) {
@@ -267,7 +267,7 @@ class Connectors {
         this.status('wechat', {
           status:
             code === 0
-              ? failed || restoration.unreadable || restorationError
+              ? failed || restoration.unreadable || restorationError || r.failed || cached.failed
                 ? 'partial'
                 : 'ready'
               : r.added
@@ -283,7 +283,7 @@ class Connectors {
           lastScan: Date.now(),
           message:
             code === 0
-              ? `本次新增 ${r.added} 个 · 忽略重复 ${r.duplicates} 个${failed ? ' · 下载失败 ' + failed + ' 个' : ''}${restoration.recovered ? ' · 还原加密原件 ' + restoration.recovered + ' 个' : ''}${restoration.unreadable ? ' · 不可识别资源 ' + restoration.unreadable + ' 个已跳过' : ''}${restorationError ? ' · 部分加密资源未能还原' : ''}`
+              ? `本次新增 ${r.added} 个 · 忽略重复 ${r.duplicates} 个${failed ? ' · 下载失败 ' + failed + ' 个' : ''}${r.failed || cached.failed ? ' · 原件导入失败 ' + ((r.failed || 0) + (cached.failed || 0)) + ' 项，请查看诊断' : ''}${r.skipped ? ' · 跳过 ' + r.skipped + ' 项' : ''}${restoration.recovered ? ' · 还原加密原件 ' + restoration.recovered + ' 个' : ''}${restoration.unreadable ? ' · 不可识别资源 ' + restoration.unreadable + ' 个已跳过' : ''}${restorationError ? ' · 部分加密资源未能还原' : ''}`
               : permission
                 ? cachePermission
                   ? '表情原件已保留。请点「授权助手缓存」，允许访问助手缓存目录后继续同步。'
