@@ -146,3 +146,17 @@ input:focus-visible {
     transition: none;
   }
 }
+
+#items.virtual-grid {
+  display: block;
+}
+#empty {
+  position: absolute;
+  top: 240px;
+  left: 25px;
+  right: 25px;
+  pointer-events: none;
+}
+[hidden] {
+  display: none !important;
+}

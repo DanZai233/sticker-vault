@@ -18,14 +18,15 @@ window.makeStickerActions = function (
     button.onclick = async (event) => {
       event.stopPropagation();
       beforeAction();
+      const nextFavorite = !item.favorite;
       button.disabled = true;
       try {
-        if (type === 'favorite') await api.update(item.id, { favorite: !item.favorite });
+        if (type === 'favorite') await api.update(item.id, { favorite: nextFavorite });
         else {
           await api.moveToFront(item.id);
           onMoved();
         }
-        onDone(type === 'favorite' ? (item.favorite ? '已取消收藏' : '已收藏') : '已移到第一位');
+        onDone(type === 'favorite' ? (nextFavorite ? '已收藏' : '已取消收藏') : '已移到第一位');
       } catch (error) {
         onError(error);
       } finally {
@@ -36,6 +37,17 @@ window.makeStickerActions = function (
     button.oncontextmenu = (event) => event.stopPropagation();
     box.append(button);
   }
+  box.refresh = (next) => {
+    item = next;
+    const favorite = box.querySelector('.quick-favorite'),
+      front = box.querySelector('.quick-front');
+    const label = item.favorite ? '取消收藏' : '收藏';
+    favorite.textContent = item.favorite ? '♥' : '♡';
+    favorite.setAttribute('aria-pressed', !!item.favorite);
+    favorite.title = label;
+    favorite.setAttribute('aria-label', label + '：' + item.name);
+    front.setAttribute('aria-label', '移到第一位：' + item.name);
+  };
   return box;
 };
 // Moving is an ordering action, not a toggle or a permanent pinned state.

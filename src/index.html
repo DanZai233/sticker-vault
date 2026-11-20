@@ -20,7 +20,8 @@
         <button data-filter="all" class="active">▦　全部表情 <span id="total">0</span></button
         ><button data-filter="recent">◷　最近使用</button
         ><button data-filter="favorite">♡　我的常用</button
-        ><button data-filter="animated">▷　动态表情</button>
+        ><button data-filter="animated">▷　动态表情</button
+        ><button data-filter="trash">♻　回收站 <span id="trash-total">0</span></button>
       </nav>
       <div class="section-label">来源</div>
       <nav id="sources"></nav>
@@ -36,7 +37,8 @@
           <h1 id="heading">全部表情</h1>
         </div>
         <div class="header-actions">
-          <span class="local-dot">本地素材库</span><button id="manage">设置</button>
+          <span class="local-dot">本地素材库</span><button id="diagnostics-open">导入诊断</button
+          ><button id="manage">设置</button>
         </div>
       </header>
       <div class="toolbar">
@@ -57,8 +59,16 @@
       </div>
       <div id="bulk" hidden>
         <span id="selection-count"></span><button id="bulk-export">导出原文件</button
-        ><button id="bulk-remove">移除</button><button id="cancel-select">取消多选</button>
+        ><button id="bulk-restore" hidden>恢复所选</button
+        ><button id="bulk-remove">移到回收站</button><button id="cancel-select">取消多选</button>
       </div>
+      <div id="trash-tools" hidden>
+        <p class="hint">
+          保留原件与管理记录，不会自动清空。自动收集不会恢复回收站内容；手动导入或同步同一图片可能恢复它。完整备份仅包含素材库中的表情。
+        </p>
+        <button id="restore-all">恢复全部</button><button id="discard-all">交给系统废纸篓</button>
+      </div>
+      <button id="view-import-result" hidden>查看最近导入结果</button>
       <section id="grid" aria-label="表情列表"></section>
       <section id="empty" hidden>
         <div class="empty-icon">☺</div>
@@ -91,7 +101,9 @@
       <div class="detail-bottom">
         <button id="export-one">导出原文件</button><button id="reveal">在文件夹中显示</button
         ><button id="copy-original">复制原文件</button><button id="copy-path">复制文件路径</button
-        ><button id="remove" class="danger">移除</button>
+        ><button id="remove" class="danger">移到回收站</button
+        ><button id="detail-restore" hidden>恢复到素材库</button
+        ><button id="detail-discard" hidden>交给系统废纸篓</button>
       </div>
       <p class="hint">
         拖动上方原图到聊天窗口。接收应用可能将其作为文件发送，动画显示取决于该应用的支持。
@@ -124,7 +136,7 @@
         <h3>完整备份与迁移</h3>
         <p class="hint">
           导出全部动图原件、标签、收藏、排序、使用与 OCR
-          记录、便携设置。导入只合并，不清空现有库；密码、登录态和系统权限不随包迁移。
+          记录、便携设置。导入只合并，不清空现有库；密码、登录态和系统权限不随包迁移。回收站表情不在备份内，需要迁移的请先恢复。
         </p>
         <div class="transfer-buttons">
           <button id="backup-export">导出完整备份</button
@@ -189,8 +201,52 @@
       <div id="folders"></div>
       <p class="hint">仅在应用运行时收集。移除关联不会删除已入库表情。</p>
     </dialog>
-    <div id="toast" role="status" hidden></div>
+    <dialog id="diagnostics-dialog">
+      <div class="dialog-top">
+        <h2>导入诊断</h2>
+        <button class="close" aria-label="关闭">×</button>
+      </div>
+      <p class="hint">
+        图片与文件夹导入记录仅保存在本机，最多保留最近 20 次。自动收集的空扫描不产生记录。完整备份和
+        WebDAV 的进度与错误见设置中的备份面板。
+      </p>
+      <div id="diagnostic-history"></div>
+      <h3 id="report-heading">选择一条记录查看</h3>
+      <p id="report-summary" role="status"></p>
+      <div class="transfer-buttons">
+        <select id="report-filter" aria-label="筛选导入结果">
+          <option value="all">全部结果</option>
+          <option value="failed">失败</option>
+          <option value="skipped">跳过</option>
+          <option value="duplicate">重复</option>
+          <option value="added">新增</option>
+          <option value="restored">恢复</option></select
+        ><input
+          id="report-search"
+          placeholder="搜索文件名、路径或原因"
+          aria-label="搜索诊断记录"
+        /><button id="report-retry" disabled>重试失败项</button>
+      </div>
+      <div id="diagnostic-rows"></div>
+      <p id="report-limit" class="hint"></p>
+      <h3>平台接入处理建议</h3>
+      <div id="diagnostic-platforms"></div>
+    </dialog>
+    <dialog id="operation-dialog">
+      <div class="dialog-top">
+        <h2>部分原件未完成处理</h2>
+        <button class="close" aria-label="关闭">×</button>
+      </div>
+      <p id="operation-errors"></p>
+    </dialog>
+    <div id="undo-bar" role="status" hidden>
+      <span id="undo-message"></span><button id="undo-delete">撤销删除</button
+      ><button id="undo-dismiss" aria-label="关闭撤销提示">×</button>
+    </div>
+    <div id="toast" role="status" hidden><span id="toast-message"></span></div>
     <div id="drop-overlay" hidden>松开，收藏你的表情 <small>原文件导入 · 自动去重</small></div>
+    <script src="virtual-grid.js"></script>
+    <script src="diagnostic-help.js"></script>
     <script src="card-actions.js"></script>
     <script src="renderer.js"></script>
   </body>

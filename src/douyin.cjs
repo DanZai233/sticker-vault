@@ -130,8 +130,8 @@ class DouyinConnector {
       const dest = path.join(out, name);
       try {
         await downloadSticker(item.url, dest, item.animated);
-        const r = await c.lib.import([dest], '抖音');
-        if (r.errors.length || r.skipped) throw Error('导入失败');
+        const r = await c.lib.import([dest], '抖音', { restoreTrash: false, automatic: true });
+        if (r.errors.length) throw Error('导入失败');
         added += r.added;
         seen[key] = true;
       } catch (e) {

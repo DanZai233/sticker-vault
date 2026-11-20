@@ -142,14 +142,58 @@ app.whenReady().then(async () => {
       0,
     );
     console.log('MAIN_ACTIONS_PASS: favorite toggle, repeatable move-to-front, no accidental copy');
+    await js(
+      `window.vault.fixtureItems(Array.from({length:5000},(_,i)=>({id:String(i),name:'表情'+i,tags:[],source:'测试',size:100,ext:'gif',createdAt:5000-i,lastUsedAt:5000-i,animated:true,url:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'})))`,
+    );
+    assert.ok(await js('document.querySelectorAll(".card").length < 100'));
+    await js(
+      'mainGrid.reveal(3000);window.stableImage=mainGrid.nodes.get("3000").querySelector("img");window.stableScroll=scrollY',
+    );
+    await js('window.vault.update("3000",{favorite:true})');
+    assert.equal(
+      await js('mainGrid.nodes.get("3000").querySelector("img")===window.stableImage'),
+      true,
+    );
+    assert.equal(await js('scrollY===window.stableScroll'), true);
+    await js('mainGrid.reveal(4999)');
+    assert.ok(await js('!!mainGrid.nodes.get("4999")'));
+    assert.ok(await js('document.querySelectorAll(".card").length < 100'));
+    assert.equal(await js('window.stableImage.getAttribute("src")'), null);
+    await js('window.scrollTo(0,0);mainGrid.draw()');
+    console.log(
+      'VIRTUAL_GRID_PASS: 5000 items, bounded DOM, last item reachable, stable image and scroll after favorite, offscreen source released',
+    );
+    await js('window.vault.remove(["0"])');
+    await js(`document.querySelector('[data-filter="trash"]').click()`);
+    assert.equal(await js('document.querySelectorAll(".card").length'), 1);
+    await js(`document.querySelector('.card[data-id="0"] .card-actions button').click()`);
+    await js('new Promise(resolve=>setTimeout(resolve,50))');
+    assert.equal(await js('state.trash.length'), 0);
+    await js(`document.querySelector('[data-filter="all"]').click()`);
+    await js('window.vault.fixtureReport()');
+    await js('openReport("fixture-report")');
+    assert.ok(
+      (await js('document.querySelector("#report-summary").textContent')).includes('失败 1'),
+    );
+    await js('document.querySelector("#report-filter").value="failed";renderReportDetails()');
+    assert.equal(await js('reportGrid.items.length'), 1);
+    await js('document.querySelector("#report-retry").onclick()');
+    assert.equal(
+      await js(
+        'window.vault.operations().then(ops=>ops.filter(op=>op.type==="retry-import").length)',
+      ),
+      1,
+    );
+    await js('document.querySelector("#diagnostics-dialog").close()');
+    console.log('TRASH_DIAGNOSTICS_UI_PASS: bin restore and failure filter/retry');
     await win.loadFile(path.join(__dirname, '../src/panel.html'));
     await js(
       `window.vault.fixtureItems(Array.from({length:301},(_,i)=>({id:String(i),name:"表情"+i,tags:[],createdAt:301-i,url:"data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"}))).then(()=>document.querySelector('[data-filter="all"]').click())`,
     );
     assert.ok((await js('document.querySelector("#count").textContent')).includes('共 301 个'));
-    await js('while(shown<matchingItems.length) appendPage()');
-    assert.equal(await js('document.querySelectorAll(".item").length'), 301);
-    assert.equal(await js('document.querySelector("#load-more")'), null);
+    assert.ok(await js('document.querySelectorAll(".item").length < 80'));
+    await js('panelGrid.reveal(300)');
+    assert.equal(await js(`document.querySelector('.item[data-id="300"]').title`), '表情300');
     await js('document.querySelector("#search").value="表情300";render()');
     assert.equal(await js('document.querySelectorAll(".item").length'), 1);
     assert.equal(await js('document.querySelector(".item").title'), '表情300');

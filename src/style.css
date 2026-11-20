@@ -691,3 +691,129 @@ h3 {
     grid-template-columns: 1fr;
   }
 }
+
+#grid.virtual-grid {
+  display: block;
+}
+.virtual-stage {
+  width: 100%;
+  overflow-anchor: none;
+}
+#grid .card {
+  height: 246px;
+}
+#grid .card-use {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+#grid .thumb {
+  width: 100%;
+  flex: 0 0 148px;
+}
+#grid .card-info {
+  width: 100%;
+}
+#undo-bar {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #eef5f0;
+  border: 1px solid #aecab8;
+  box-shadow: 0 4px 18px #233a2520;
+  border-radius: 10px;
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 99;
+  max-width: 85vw;
+}
+#toast {
+  bottom: 85px;
+}
+#trash-tools {
+  margin: 8px 0 16px;
+}
+#trash-tools .hint {
+  line-height: 1.8;
+}
+#view-import-result {
+  margin-bottom: 12px;
+}
+#diagnostics-dialog {
+  width: 900px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+#diagnostic-history {
+  max-height: 140px;
+  overflow-y: auto;
+  display: grid;
+  gap: 6px;
+}
+.report-history {
+  text-align: left;
+  font-size: 12px;
+}
+#diagnostic-rows {
+  height: 340px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+.diagnostic-row {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  overflow: hidden;
+}
+.diagnostic-row strong {
+  font-size: 12px;
+  display: block;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.diagnostic-row p {
+  font-size: 11px;
+  color: #7d887f;
+  margin: 7px 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.diagnostic-row small {
+  font-size: 11px;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#operation-errors {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 55vh;
+  overflow: auto;
+}
+.connector-help summary {
+  font-size: 12px;
+  cursor: pointer;
+  color: #457a5c;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.diagnostic-row {
+  padding-right: 75px;
+}
+.diagnostic-row > button {
+  position: absolute;
+  right: 10px;
+  top: 12px;
+  padding: 6px 9px;
+  font-size: 11px;
+}

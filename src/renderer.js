@@ -8,7 +8,7 @@ let state = { items: [], folders: [] },
   current = null,
   toastTimer;
 function toast(s) {
-  $('#toast').textContent = s;
+  $('#toast-message').textContent = s;
   $('#toast').hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => ($('#toast').hidden = true), 4500);
@@ -28,33 +28,47 @@ function el(tag, cls, text) {
 }
 const size = (n) =>
   n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
-function render() {
+function render({ reset = false } = {}) {
   $('#total').textContent = state.items.length;
-  $('#storage').textContent = size(state.items.reduce((a, i) => a + i.size, 0));
+  $('#storage').textContent =
+    size(state.items.reduce((a, i) => a + i.size, 0)) +
+    ((state.trash || []).length
+      ? ' · 回收站 ' + size(state.trash.reduce((a, i) => a + i.size, 0))
+      : '');
   const labels = {
     all: '全部表情',
     favorite: '我的常用',
     recent: '最近使用',
     animated: '动态表情',
+    trash: '回收站',
   };
   $('#heading').textContent = labels[filter] || filter;
   document
     .querySelectorAll('[data-filter]')
     .forEach((b) => b.classList.toggle('active', b.dataset.filter === filter));
-  const sources = $('#sources');
-  sources.replaceChildren();
-  for (const s of [...new Set(state.items.map((i) => i.source))]) {
-    const b = el('button', filter === s ? 'active' : '', '◦　' + s);
-    b.onclick = () => {
-      filter = s;
-      render();
-    };
-    sources.append(b);
+  const sources = $('#sources'),
+    names = [...new Set(state.items.map((item) => item.source))],
+    sourceSignature = JSON.stringify(names);
+  if (sources.dataset.signature !== sourceSignature) {
+    sources.dataset.signature = sourceSignature;
+    sources.replaceChildren();
+    for (const source of names) {
+      const button = el('button', '', '◦　' + source);
+      button.dataset.source = source;
+      button.onclick = () => {
+        filter = source;
+        render();
+      };
+      sources.append(button);
+    }
   }
+  for (const button of sources.children)
+    button.classList.toggle('active', button.dataset.source === filter);
   const q = $('#search').value.trim().toLowerCase();
-  let items = state.items.filter(
+  let items = (filter === 'trash' ? state.trash || [] : state.items).filter(
     (i) =>
       (filter === 'all' ||
+        filter === 'trash' ||
         (filter === 'recent'
           ? i.lastUsedAt
           : filter === 'favorite'
@@ -64,100 +78,40 @@ function render() {
               : i.source === filter)) &&
       [i.name, i.source, i.ocrText || '', ...i.tags].join(' ').toLowerCase().includes(q),
   );
+  $('#sort').disabled = filter === 'trash';
   const sort = $('#sort').value;
   items.sort(
-    filter === 'recent' || sort === 'used'
-      ? (a, b) => stickerOrderTime(b, true) - stickerOrderTime(a, true)
-      : sort === 'name'
-        ? (a, b) => a.name.localeCompare(b.name, 'zh')
-        : sort === 'size'
-          ? (a, b) => b.size - a.size
-          : (a, b) => stickerOrderTime(b) - stickerOrderTime(a),
+    filter === 'trash'
+      ? (a, b) => b.deletedAt - a.deletedAt
+      : filter === 'recent' || sort === 'used'
+        ? (a, b) => stickerOrderTime(b, true) - stickerOrderTime(a, true)
+        : sort === 'name'
+          ? (a, b) => a.name.localeCompare(b.name, 'zh')
+          : sort === 'size'
+            ? (a, b) => b.size - a.size
+            : (a, b) => stickerOrderTime(b) - stickerOrderTime(a),
   );
   $('#count').textContent =
     `${items.length} 个表情 · ${items.filter((i) => i.animated).length} 个动图`;
   $('#bulk').hidden = !selecting;
   $('#selection-count').textContent = `已选 ${selected.size} 个`;
   $('#select-mode').textContent = selecting ? '正在多选' : '多选';
-  const grid = $('#grid');
-  grid.replaceChildren();
-  for (const item of items) {
-    const card = el('article', 'card' + (selected.has(item.id) ? ' selected' : ''));
-    card.dataset.id = item.id;
-    const surface = el('button', 'card-use');
-    surface.type = 'button';
-    surface.setAttribute('aria-label', item.name + (item.animated ? '，动图' : ''));
-    surface.setAttribute('aria-pressed', selected.has(item.id));
-    const thumb = el('div', 'thumb');
-    const img = el('img');
-    img.src = item.url;
-    img.alt = item.name;
-    img.loading = 'lazy';
-    img.draggable = true;
-    thumb.append(img);
-    surface.append(thumb);
-    const info = el('div', 'card-info');
-    info.append(el('strong', '', item.name));
-    const meta = el('small');
-    meta.append(
-      el('span', '', item.tags.length ? '# ' + item.tags[0] : item.source),
-      el('span', '', size(item.size)),
-    );
-    info.append(meta);
-    surface.append(info);
-    if (item.animated) surface.append(el('span', 'badge', '▷ 动图'));
-    surface.draggable = !selecting;
-    surface.ondragstart = (e) => {
-      e.preventDefault();
-      clearTimeout(copyTimer);
-      resetDrop();
-      api.drag(item.id);
-    };
-    surface.title = '单击复制原文件 · 双击或右键管理';
-    surface.onclick = (event) => {
-      if (selecting) {
-        selected.has(item.id) ? selected.delete(item.id) : selected.add(item.id);
-        render();
-      } else {
-        clearTimeout(copyTimer);
-        if (event.detail > 1) return;
-        const copy = () =>
-          action(async () => {
-            await api.copyOriginal(item.id);
-            toast('已复制原文件，请在聊天窗口粘贴');
-          });
-        if (event.detail === 0) copy();
-        else copyTimer = setTimeout(copy, 260);
-      }
-    };
-    surface.ondblclick = () => {
-      clearTimeout(copyTimer);
-      if (!selecting) openDetail(item);
-    };
-    surface.oncontextmenu = (event) => {
-      event.preventDefault();
-      clearTimeout(copyTimer);
-      if (!selecting) openDetail(item);
-    };
-    card.append(surface);
-    if (!selecting)
-      card.append(
-        makeStickerActions(item, {
-          api,
-          beforeAction: () => clearTimeout(copyTimer),
-          onMoved: () => {
-            $('#sort').value = 'new';
-            render();
-            $('#grid').scrollIntoView({ block: 'start' });
-          },
-          onError: (error) => toast('操作失败：' + error.message),
-          onDone: toast,
-        }),
-      );
-    grid.append(card);
-  }
+  $('#trash-total').textContent = (state.trash || []).length;
+  $('#trash-tools').hidden = filter !== 'trash';
+  $('#bulk-restore').hidden = filter !== 'trash';
+  $('#bulk-remove').textContent = filter === 'trash' ? '交给系统废纸篓' : '移到回收站';
+  $('#select-mode').textContent = selecting ? '正在多选' : '多选';
+  const signature = filter + '|' + q + '|' + sort;
+  mainGrid.update(items, { reset: reset || signature !== lastGridSignature });
+  lastGridSignature = signature;
+  $('#undo-bar').hidden = !lastDeleteIds.some((id) =>
+    (state.trash || []).some((item) => item.id === id),
+  );
   $('#empty').hidden = items.length > 0;
-  if (!state.items.length) {
+  if (filter === 'trash') {
+    $('#empty h2').textContent = '回收站是空的';
+    $('#empty p').textContent = '移除的表情会保留在这里，可以随时恢复。';
+  } else if (!state.items.length) {
     $('#empty h2').textContent = '给你的表达，找个家';
     $('#empty p').innerHTML =
       '把 GIF、PNG、JPG 或 WebP 拖进来。<br>原始文件完整保存，动图依然会动。';
@@ -167,8 +121,122 @@ function render() {
   }
   renderFolders();
   renderConnectors();
+  renderReports();
   renderPreferences();
 }
+let lastGridSignature = '',
+  lastDeleteIds = [];
+function createCard(initial) {
+  const card = el('article', 'card');
+  card.dataset.id = initial.id;
+  const item = (card._item = { ...initial });
+  const surface = el('button', 'card-use');
+  surface.type = 'button';
+  const thumb = el('div', 'thumb'),
+    img = el('img');
+  img.alt = item.name;
+  img.draggable = true;
+  thumb.append(img);
+  const info = el('div', 'card-info'),
+    name = el('strong'),
+    meta = el('small');
+  meta.append(el('span'), el('span'));
+  info.append(name, meta);
+  surface.append(thumb, info);
+  card.append(surface);
+  surface.ondragstart = (event) => {
+    event.preventDefault();
+    clearTimeout(copyTimer);
+    resetDrop();
+    api.drag(item.id);
+  };
+  surface.onclick = (event) => {
+    if (selecting) {
+      selected.has(item.id) ? selected.delete(item.id) : selected.add(item.id);
+      render();
+    } else if (filter === 'trash') openDetail(item);
+    else {
+      clearTimeout(copyTimer);
+      if (event.detail > 1) return;
+      const copy = () =>
+        action(async () => {
+          await api.copyOriginal(item.id);
+          toast('已复制原文件，请在聊天窗口粘贴');
+        });
+      if (event.detail === 0) copy();
+      else copyTimer = setTimeout(copy, 260);
+    }
+  };
+  surface.ondblclick = () => {
+    clearTimeout(copyTimer);
+    if (!selecting) openDetail(item);
+  };
+  surface.oncontextmenu = (event) => {
+    event.preventDefault();
+    clearTimeout(copyTimer);
+    if (!selecting) openDetail(item);
+  };
+  return card;
+}
+function patchCard(card, value) {
+  const item = Object.assign(card._item, value),
+    surface = card.querySelector('.card-use'),
+    img = card.querySelector('img'),
+    info = card.querySelector('.card-info');
+  card.classList.toggle('selected', selected.has(item.id));
+  surface.setAttribute('aria-label', item.name + (item.animated ? '，动图' : ''));
+  surface.setAttribute('aria-pressed', selected.has(item.id));
+  surface.draggable = !selecting;
+  surface.title = filter === 'trash' ? '查看原件与恢复选项' : '单击复制原文件 · 双击或右键管理';
+  img.alt = item.name;
+  img.dataset.originalSrc = item.url;
+  const name = info.querySelector('strong'),
+    spans = info.querySelectorAll('small span');
+  if (name.textContent !== item.name) name.textContent = item.name;
+  const description =
+    filter === 'trash'
+      ? '删除于 ' + new Date(item.deletedAt).toLocaleDateString()
+      : item.tags.length
+        ? '# ' + item.tags[0]
+        : item.source;
+  if (spans[0].textContent !== description) spans[0].textContent = description;
+  if (spans[1].textContent !== size(item.size)) spans[1].textContent = size(item.size);
+  if (item.animated && !card.querySelector('.badge')) surface.append(el('span', 'badge', '▷ 动图'));
+  const kind = selecting ? 'select' : filter === 'trash' ? 'trash' : 'active';
+  if (card.dataset.actionKind !== kind) {
+    card.querySelector('.card-actions')?.remove();
+    card.dataset.actionKind = kind;
+    if (kind === 'active')
+      card.append(
+        makeStickerActions(item, {
+          api,
+          beforeAction: () => clearTimeout(copyTimer),
+          onMoved: () => {
+            $('#sort').value = 'new';
+            render({ reset: true });
+            mainGrid.reveal(0);
+          },
+          onError: (error) => toast('操作失败：' + error.message),
+          onDone: toast,
+        }),
+      );
+    if (kind === 'trash') {
+      const controls = el('div', 'card-actions');
+      const restore = el('button', '', '↶'),
+        discard = el('button', '', '×');
+      restore.title = '恢复';
+      restore.setAttribute('aria-label', '恢复：' + item.name);
+      discard.title = '交给系统废纸篓';
+      discard.setAttribute('aria-label', '交给系统废纸篓：' + item.name);
+      restore.onclick = () => restoreItems([item.id]);
+      discard.onclick = () => discardItems([item.id]);
+      controls.append(restore, discard);
+      card.append(controls);
+    }
+  }
+  card.querySelector('.card-actions')?.refresh?.(item);
+}
+const mainGrid = new VirtualStickerGrid($('#grid'), { create: createCard, patch: patchCard });
 function openDetail(item) {
   current = item.id;
   $('#ocr-detail').textContent =
@@ -181,6 +249,11 @@ function openDetail(item) {
         : '等待后台 OCR 识别。';
   $('#detail-img').src = item.url;
   $('#detail-img').alt = item.name;
+  const inTrash = (state.trash || []).some((value) => value.id === item.id);
+  for (const id of ['edit-name', 'edit-tags']) $('#' + id).disabled = inTrash;
+  for (const id of ['save', 'favorite', 'remove']) $('#' + id).hidden = inTrash;
+  $('#detail-restore').hidden = !inTrash;
+  $('#detail-discard').hidden = !inTrash;
   $('#edit-name').value = item.name;
   $('#edit-tags').value = item.tags.join(', ');
   $('#metadata').textContent =
@@ -218,10 +291,15 @@ function renderFolders() {
 async function doImport(paths) {
   $('#count').textContent = '正在导入原文件…';
   const r = await action(() => api.importFiles(paths));
-  if (r)
+  if (r) {
+    if (r.reportId) {
+      lastReportId = r.reportId;
+      $('#view-import-result').hidden = false;
+    }
     toast(
-      `新增 ${r.added} 个 · 重复 ${r.duplicates} 个 · 跳过 ${r.skipped} 个${r.errors.length ? ' · 失败 ' + r.errors.length + ' 个' : ''}`,
+      `新增 ${r.added} 个 · 恢复 ${r.restored || 0} 个 · 重复 ${r.duplicates} 个 · 跳过 ${r.skipped} 个 · 失败 ${r.failed ?? r.errors.length} 个${r.diagnosticWarning ? '；' + r.diagnosticWarning : ''}`,
     );
+  }
   render();
 }
 for (const b of document.querySelectorAll('.import')) b.onclick = () => doImport();
@@ -229,7 +307,7 @@ for (const b of document.querySelectorAll('[data-filter]'))
   b.onclick = () => {
     filter = b.dataset.filter;
     selected.clear();
-    render();
+    render({ reset: true });
   };
 $('#search').oninput = render;
 $('#sort').onchange = render;
@@ -286,18 +364,77 @@ async function exportItems(ids) {
 }
 $('#export-one').onclick = () => exportItems([current]);
 $('#bulk-export').onclick = () => exportItems([...selected]);
-$('#remove').onclick = () =>
-  action(async () => {
-    await api.remove([current]);
-    if (!state.items.some((i) => i.id === current)) $('#detail').close();
+async function deleteItems(ids) {
+  return action(async () => {
+    const result = await api.remove(ids);
+    if (result?.count) {
+      lastDeleteIds = result.ids;
+      $('#undo-bar').hidden = false;
+      $('#undo-message').textContent = `已将 ${result.count} 个表情移到回收站`;
+      toast('已移到回收站，可撤销或随时恢复');
+    }
+    return result;
   });
-$('#bulk-remove').onclick = () =>
-  action(async () => {
-    if (!selected.size) return toast('先选择表情');
-    await api.remove([...selected]);
-    selected.clear();
+}
+async function restoreItems(ids) {
+  return action(async () => {
+    const result = await api.restoreTrash(ids);
+    toast(
+      `已恢复 ${result.restored} 个` +
+        (result.failed.length ? `，${result.failed.length} 个原件无法读取` : ''),
+    );
+    if (result.failed.length) await showFailures(result.failed);
     render();
+    return result;
   });
+}
+async function discardItems(ids) {
+  return action(async () => {
+    const result = await api.discardTrash(ids);
+    if (result && !result.canceled) {
+      toast(
+        `已将 ${result.removed} 个交给系统废纸篓` +
+          (result.failed.length ? `，${result.failed.length} 个未移动` : ''),
+      );
+      if (result.failed.length) await showFailures(result.failed);
+    }
+    render();
+    return result;
+  });
+}
+async function showFailures(items) {
+  $('#operation-errors').textContent = items
+    .map((item) => item.name + '：' + item.error)
+    .join('\n');
+  $('#operation-dialog').showModal();
+}
+$('#remove').onclick = async () => {
+  const result = await deleteItems([current]);
+  if (result?.count) $('#detail').close();
+};
+$('#bulk-remove').onclick = async () => {
+  if (!selected.size) return toast('先选择表情');
+  if (filter === 'trash') await discardItems([...selected]);
+  else await deleteItems([...selected]);
+  selected.clear();
+  render();
+};
+$('#bulk-restore').onclick = () => restoreItems([...selected]);
+$('#detail-restore').onclick = async () => {
+  await restoreItems([current]);
+  $('#detail').close();
+};
+$('#detail-discard').onclick = async () => {
+  const result = await discardItems([current]);
+  if (result && !result.canceled) $('#detail').close();
+};
+$('#restore-all').onclick = () => restoreItems((state.trash || []).map((item) => item.id));
+$('#discard-all').onclick = () => discardItems((state.trash || []).map((item) => item.id));
+$('#undo-delete').onclick = () => restoreItems(lastDeleteIds);
+$('#undo-dismiss').onclick = () => {
+  lastDeleteIds = [];
+  $('#undo-bar').hidden = true;
+};
 $('#add-folder').onclick = () =>
   action(async () => {
     const b = $('#add-folder');
@@ -362,7 +499,11 @@ document.addEventListener('keydown', (e) => {
 });
 api.onChange((s) => {
   state = s;
-  selected = new Set([...selected].filter((id) => state.items.some((i) => i.id === id)));
+  selected = new Set(
+    [...selected].filter((id) =>
+      (filter === 'trash' ? state.trash || [] : state.items).some((i) => i.id === id),
+    ),
+  );
   render();
 });
 api.onError(toast);
@@ -460,6 +601,11 @@ function renderConnectors() {
       stop.onclick = () => action(() => api.disableConnector(id));
       actions.append(stop);
     }
+    const help = el('details', 'connector-help'),
+      summary = el('summary', '', '查看处理建议');
+    help.append(summary);
+    for (const step of connectorHelp(id, state.platform, s)) help.append(el('p', '', step));
+    row.append(help);
     row.append(actions);
     box.append(row);
   }
@@ -528,9 +674,8 @@ api.onOcrUpdate((update) => {
   if (update.item) {
     const index = state.items.findIndex((i) => i.id === update.item.id);
     if (index >= 0) state.items[index] = update.item;
-    const meta = document.querySelector(`.card[data-id="${update.item.id}"] .card-info small span`);
-    if (meta)
-      meta.textContent = update.item.tags.length ? '# ' + update.item.tags[0] : update.item.source;
+    const card = mainGrid.nodes.get(update.item.id);
+    if (card) patchCard(card, update.item);
     if ($('#search').value.trim()) render();
   }
   renderPreferences();
@@ -659,4 +804,148 @@ $('#transfer-cancel').onclick = () => api.cancelTransfer();
 api.onTransferUpdate((update) => {
   state.transferState = update;
   renderTransferSettings();
+});
+
+let lastReportId = null,
+  currentReport = null;
+function renderReports() {
+  const history = $('#diagnostic-history'),
+    summaries = state.importReports || [],
+    signature = JSON.stringify(summaries.map((r) => [r.id, r.createdAt]));
+  if (history.dataset.signature !== signature) {
+    history.dataset.signature = signature;
+    history.replaceChildren();
+    if (!summaries.length)
+      history.append(el('p', 'hint', '尚无导入记录，导入文件后可以在这里查看。'));
+    for (const report of summaries) {
+      const counts = report.counts,
+        button = el(
+          'button',
+          'report-history',
+          `${new Date(report.createdAt).toLocaleString()} · ${report.source} · 新增 ${counts.added} · 重复 ${counts.duplicate} · 跳过 ${counts.skipped} · 失败 ${counts.failed}`,
+        );
+      button.onclick = () => openReport(report.id);
+      history.append(button);
+    }
+  }
+  const platforms = $('#diagnostic-platforms'),
+    platformSignature = JSON.stringify([state.platform, state.connectors]);
+  if (platforms.dataset.signature !== platformSignature) {
+    platforms.dataset.signature = platformSignature;
+    platforms.replaceChildren();
+    for (const [id, name] of [
+      ['qq', 'QQ'],
+      ['wechat', '微信'],
+      ['douyin', '抖音'],
+    ]) {
+      const status = state.connectors?.[id] || {},
+        box = el('section', 'connector');
+      box.append(el('strong', '', name), el('p', '', status.message || '尚未连接'));
+      for (const step of connectorHelp(id, state.platform, status))
+        box.append(el('p', 'hint', step));
+      const settings = el('button', '', '前往连接设置');
+      settings.onclick = () => {
+        $('#diagnostics-dialog').close();
+        $('#manage').click();
+      };
+      box.append(settings);
+      platforms.append(box);
+    }
+  }
+}
+function createDiagnosticRow(item) {
+  const row = el('article', 'diagnostic-row');
+  row.dataset.id = item.id;
+  row.append(el('strong'), el('p'), el('small'));
+  const locate = el('button', '', '定位');
+  locate.onclick = () => {
+    if (currentReport && row._item)
+      action(() => api.revealReportItem(currentReport.id, row._item.key));
+  };
+  row.append(locate);
+  return row;
+}
+function patchDiagnosticRow(row, item) {
+  row._item = item;
+  row.querySelector('strong').textContent =
+    `${{ added: '新增', restored: '恢复', duplicate: '重复', skipped: '跳过', failed: '失败' }[item.status]} · ${item.name}`;
+  row.querySelector('p').textContent = item.path;
+  row.querySelector('small').textContent = item.message + (item.error ? '：' + item.error : '');
+  row.title = item.path + '\n' + item.message + (item.error ? '：' + item.error : '');
+}
+const reportGrid = new VirtualStickerGrid($('#diagnostic-rows'), {
+  scroller: $('#diagnostic-rows'),
+  columns: 1,
+  rowHeight: 104,
+  gap: 8,
+  create: createDiagnosticRow,
+  patch: patchDiagnosticRow,
+});
+function renderReportDetails() {
+  if (!currentReport) return;
+  const query = $('#report-search').value.trim().toLowerCase(),
+    status = $('#report-filter').value;
+  const rows = currentReport.details
+    .filter(
+      (item) =>
+        (status === 'all' || item.status === status) &&
+        [item.path, item.message, item.error || ''].join(' ').toLowerCase().includes(query),
+    )
+    .map((item) => ({ ...item, id: item.key }));
+  reportGrid.update(rows, { reset: true });
+}
+async function openReport(id) {
+  return action(async () => {
+    currentReport = await api.importReport(id);
+    lastReportId = id;
+    const r = currentReport,
+      c = r.counts;
+    $('#report-heading').textContent = r.source + ' · ' + new Date(r.createdAt).toLocaleString();
+    $('#report-summary').textContent =
+      `新增 ${c.added} · 从回收站恢复 ${c.restored} · 重复 ${c.duplicate} · 跳过 ${c.skipped} · 失败 ${c.failed}`;
+    $('#report-retry').disabled = !r.details.some((item) => item.status === 'failed');
+    $('#report-limit').textContent = r.omitted
+      ? `结果较多，最多保存 ${r.details.length} 条明细（优先保留失败与跳过项），另有 ${r.omitted} 条；总数已完整统计。`
+      : '';
+    $('#report-filter').value = 'all';
+    $('#report-search').value = '';
+    renderReports();
+    if (!$('#diagnostics-dialog').open) $('#diagnostics-dialog').showModal();
+    renderReportDetails();
+    reportGrid.schedule();
+  });
+}
+$('#diagnostics-open').onclick = () => {
+  renderReports();
+  $('#diagnostics-dialog').showModal();
+  reportGrid.schedule();
+};
+$('#view-import-result').onclick = () => {
+  if (lastReportId) openReport(lastReportId);
+};
+$('#report-filter').onchange = renderReportDetails;
+$('#report-search').oninput = renderReportDetails;
+$('#report-retry').onclick = () =>
+  action(async () => {
+    if (!currentReport) return;
+    const button = $('#report-retry');
+    button.disabled = true;
+    try {
+      const result = await api.retryImport(currentReport.id);
+      if (result?.reportId) await openReport(result.reportId);
+      else toast('没有需要重试的失败项');
+    } finally {
+      button.disabled = !currentReport?.details.some((item) => item.status === 'failed');
+    }
+  });
+
+api.onItemUpdate((update) => {
+  const index = state.items.findIndex((item) => item.id === update.item.id);
+  if (index < 0) return;
+  state.items[index] = update.item;
+  if (update.move) {
+    state.items.splice(index, 1);
+    state.items.unshift(update.item);
+  }
+  render();
 });

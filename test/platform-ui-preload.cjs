@@ -10,6 +10,8 @@ const fixture = {
   ocr: { enabled: true, total: 0, done: 0, pending: 0, failed: 0 },
   startup: { enabled: false, requested: false, supported: true, message: 'Windows 启动项' },
   items: [],
+  trash: [],
+  importReports: [],
   folders: [],
   connectors: {
     wechat: {
@@ -29,6 +31,7 @@ contextBridge.exposeInMainWorld('vault', {
     changed(fixture);
   },
   operations: async () => operations,
+  onItemUpdate: noop,
   onOcrUpdate: noop,
   onTransferUpdate: noop,
   transferState: async () => fixture.transferState,
@@ -96,7 +99,55 @@ contextBridge.exposeInMainWorld('vault', {
     fixture.items = [item, ...fixture.items.filter((i) => i.id !== id)];
     changed(fixture);
   },
-  remove: resolved,
+  remove: async (ids) => {
+    const removed = fixture.items.filter((item) => ids.includes(item.id));
+    fixture.items = fixture.items.filter((item) => !ids.includes(item.id));
+    fixture.trash.push(...removed.map((item) => ({ ...item, deletedAt: Date.now() })));
+    changed(fixture);
+    return { count: removed.length, ids: removed.map((item) => item.id) };
+  },
+  restoreTrash: async (ids) => {
+    const restored = fixture.trash.filter((item) => ids.includes(item.id));
+    fixture.items.push(...restored);
+    fixture.trash = fixture.trash.filter((item) => !ids.includes(item.id));
+    changed(fixture);
+    return { restored: restored.length, failed: [] };
+  },
+  discardTrash: async (ids) => {
+    fixture.trash = fixture.trash.filter((item) => !ids.includes(item.id));
+    changed(fixture);
+    return { removed: ids.length, failed: [] };
+  },
+  fixtureReport: async () => {
+    fixture.importReports = [
+      {
+        id: 'fixture-report',
+        createdAt: Date.now(),
+        source: '测试',
+        counts: { added: 1, restored: 0, duplicate: 0, skipped: 0, failed: 1 },
+      },
+    ];
+    changed(fixture);
+  },
+  importReport: async (id) => ({
+    ...fixture.importReports[0],
+    details: [
+      { key: '0', path: 'C:/data/ok.gif', name: 'ok.gif', status: 'added', message: '成功' },
+      {
+        key: '1',
+        path: 'C:/data/locked.gif',
+        name: 'locked.gif',
+        status: 'failed',
+        code: 'permission',
+        message: '没有读取权限',
+      },
+    ],
+  }),
+  retryImport: async (id) => {
+    operations.push({ type: 'retry-import', id });
+    return { reportId: 'fixture-report' };
+  },
+  revealReportItem: resolved,
   reveal: resolved,
   copyPath: resolved,
   exportFiles: resolved,

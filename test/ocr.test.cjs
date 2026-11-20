@@ -78,7 +78,11 @@ test('OCR merges automatic tags into current manual edits and restores deleted/r
     );
     await reload.remove([id]);
     await reload.import([image]);
-    assert.ok(reload.data.items[0].tags.includes('今天不上班'));
+    assert.deepEqual(
+      reload.data.items[0].tags,
+      ['自定义'],
+      'restoring a soft-deleted image preserves manual removal of OCR tags',
+    );
     assert.equal(count, 1);
     assert.equal(
       await new OcrQueue(reload, {

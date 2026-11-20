@@ -25,6 +25,7 @@ const { OcrQueue } = require('./ocr.cjs');
 const { OcrRunner } = require('./ocr-runner.cjs');
 const { OcrImageExtractor } = require('./ocr-image.cjs');
 const { Transfers } = require('./transfer.cjs');
+const { readReport } = require('./import-diagnostics.cjs');
 let win,
   lib,
   timer,
@@ -60,6 +61,10 @@ const snapshot = () => {
     startup: startupState,
     ocr: ocr?.summary(),
     transferState: transfers?.snapshot(),
+    trash: (lib.data.trash || []).map((item) => ({
+      ...item,
+      url: pathToFileURL(path.join(lib.root, 'originals', item.file)).href,
+    })),
     items: lib.data.items.map((i) => ({
       ...i,
       url: pathToFileURL(path.join(lib.root, 'originals', i.file)).href,
@@ -71,10 +76,21 @@ const notify = () => {
   for (const w of [win, panel])
     if (w && !w.isDestroyed()) w.webContents.send('changed', snapshot());
 };
+function notifyItem(id, { move = false } = {}) {
+  const item = lib.data.items.find((value) => value.id === id);
+  if (!item) return;
+  const update = {
+    item: { ...item, url: pathToFileURL(path.join(lib.root, 'originals', item.file)).href },
+    move,
+  };
+  for (const window of [win, panel])
+    if (window && !window.isDestroyed()) window.webContents.send('item-update', update);
+}
 async function used(id) {
-  const item = lib.data.items.find((i) => i.id === id);
-  if (item) await lib.update(id, { lastUsedAt: Date.now(), useCount: (item.useCount || 0) + 1 });
-  notify();
+  if (!lib.data.items.some((item) => item.id === id)) return;
+  const item = lib.data.items.find((item) => item.id === id);
+  await lib.update(id, { lastUsedAt: Date.now(), useCount: (item.useCount || 0) + 1 });
+  notifyItem(id);
 }
 async function showPanel() {
   targetPid = await native.frontmost().catch(() => 0);
@@ -111,7 +127,7 @@ async function showPanel() {
 }
 
 const fileFor = (id) => {
-  const item = lib.data.items.find((i) => i.id === id);
+  const item = lib.data.items.find((i) => i.id === id) || lib.data.trash?.find((i) => i.id === id);
   if (!item) throw Error('找不到表情');
   return path.join(lib.root, 'originals', item.file);
 };
@@ -121,7 +137,10 @@ async function scan() {
   try {
     for (const folder of lib.data.folders) {
       try {
-        const r = await lib.import([folder.path], folder.source);
+        const r = await lib.import([folder.path], folder.source, {
+          restoreTrash: false,
+          automatic: true,
+        });
         folder.error = '';
         folder.lastScan = Date.now();
         if (r.added) notify();
@@ -345,25 +364,53 @@ if (ownsLock)
           .slice(0, 20);
       if (typeof p.favorite === 'boolean') patch.favorite = p.favorite;
       await lib.update(id, patch);
-      notify();
+      notifyItem(id);
     });
     ipcMain.handle('move-to-front', async (_, id) => {
       await lib.moveToFront(id);
-      notify();
+      notifyItem(id, { move: true });
     });
     ipcMain.handle('remove', async (_, ids) => {
-      const r = await dialog.showMessageBox(win, {
+      const result = await lib.remove(ids);
+      notify();
+      return result;
+    });
+    ipcMain.handle('trash-restore', async (_, ids) => {
+      const result = await lib.restore(ids);
+      notify();
+      return result;
+    });
+    ipcMain.handle('trash-discard', async (_, ids) => {
+      const count = (lib.data.trash || []).filter((item) => ids.includes(item.id)).length;
+      if (!count) return { removed: 0, failed: [] };
+      const answer = await dialog.showMessageBox(win, {
         type: 'question',
-        message: `从素材库移除 ${ids.length} 个表情？`,
-        detail: '原始导入文件不受影响；已关联的文件夹再次扫描时可能重新导入。',
-        buttons: ['取消', '移除'],
+        message: `将 ${count} 个回收站表情交给系统废纸篓？`,
+        detail: '从本应用回收站移除，原件交由系统废纸篓保管；不会自动永久删除文件。',
+        buttons: ['取消', '移到系统废纸篓'],
         defaultId: 0,
         cancelId: 0,
       });
-      if (r.response === 1) {
-        await lib.remove(ids);
-        notify();
-      }
+      if (answer.response !== 1) return { canceled: true };
+      const result = await lib.discard(ids, (file) => shell.trashItem(file));
+      notify();
+      return result;
+    });
+    ipcMain.handle('import-report', (_, id) => readReport(lib, id));
+    ipcMain.handle('import-retry', async (_, id) => {
+      const report = await readReport(lib, id);
+      const paths = report.details
+        .filter((item) => item.status === 'failed')
+        .map((item) => item.path);
+      if (!paths.length) return null;
+      const result = await lib.import(paths, report.source);
+      notify();
+      return result;
+    });
+    ipcMain.handle('report-reveal', async (_, id, key) => {
+      const report = await readReport(lib, id);
+      const item = report.details.find((item) => item.key === key);
+      if (item) shell.showItemInFolder(item.path);
     });
     ipcMain.handle('reveal', (_, id) => shell.showItemInFolder(fileFor(id)));
     ipcMain.handle('copy-path', (_, id) => clipboard.writeText(fileFor(id)));
@@ -373,7 +420,8 @@ if (ownsLock)
       });
       if (d.canceled) return null;
       for (const id of ids) {
-        const i = lib.data.items.find((x) => x.id === id);
+        const i =
+          lib.data.items.find((x) => x.id === id) || lib.data.trash?.find((x) => x.id === id);
         if (!i) continue;
         await fs.copyFile(
           fileFor(id),

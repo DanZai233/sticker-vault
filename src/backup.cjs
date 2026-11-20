@@ -319,11 +319,13 @@ async function mergeStaged(lib, staged, { restoreSettings = true } = {}) {
     let added = 0,
       merged = 0;
     for (const incomingItem of incoming.items) {
-      const old = byId.get(incomingItem.id);
+      const old =
+        byId.get(incomingItem.id) || next.trash?.find((item) => item.id === incomingItem.id);
       const item = old ? mergeItem(cleanItem(old), incomingItem) : structuredClone(incomingItem);
       byId.set(item.id, item);
       old ? merged++ : added++;
     }
+    next.trash = (next.trash || []).filter((item) => !byId.has(item.id));
     next.ocrRecords ??= {};
     for (const [id, record] of Object.entries(incoming.ocrRecords))
       next.ocrRecords[id] = mergeRecord(next.ocrRecords[id], record);

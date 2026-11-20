@@ -84,6 +84,7 @@ class Connectors {
         ? await this.lib.import(
             changed.map((f) => f.p),
             'QQ',
+            { restoreTrash: false, automatic: true },
           )
         : { added: 0, duplicates: 0, skipped: 0, errors: [] };
       if (!r.errors.length) for (const f of changed) seen[f.p] = f.sig;
@@ -178,7 +179,7 @@ class Connectors {
     await this.persist();
     const out = path.join(this.lib.root, 'connector-cache/wechat', account);
     await fs.mkdir(out, { recursive: true });
-    const cached = await this.lib.import([out], '微信');
+    const cached = await this.lib.import([out], '微信', { restoreTrash: false, automatic: true });
     if (cached.added) this.notify();
     try {
       await fs.access(
@@ -250,7 +251,10 @@ class Connectors {
         } catch {
           restorationError = true;
         }
-        const result = await this.lib.import([out], '微信');
+        const result = await this.lib.import([out], '微信', {
+          restoreTrash: false,
+          automatic: true,
+        });
         const r = { ...result, added: result.added + cached.added };
         const permission = /Operation not permitted|Permission denied|不允许|权限/i.test(stderr);
         const waiting = /退出|WECHAT_RUNNING|running|微信.*运行/i.test(stderr);
