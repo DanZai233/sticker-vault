@@ -192,7 +192,10 @@ if (ownsLock)
         for (const window of [win, panel])
           if (window && !window.isDestroyed()) window.webContents.send('ocr-update', update);
       },
-      schedule: !process.env.STICKER_SMOKE && !process.env.STICKER_CONNECTOR_SMOKE,
+      schedule:
+        !process.env.STICKER_SMOKE &&
+        !process.env.STICKER_CONNECTOR_SMOKE &&
+        !process.env.STICKER_GALLERY_SMOKE,
     }).init();
     transfers = await new Transfers(lib, {
       root: app.getPath('userData'),
@@ -471,7 +474,7 @@ if (ownsLock)
       height: 830,
       minWidth: 760,
       minHeight: 580,
-      show: !backgroundLaunch,
+      show: !backgroundLaunch && !process.env.STICKER_GALLERY_SMOKE,
       title: '表情仓',
       backgroundColor: '#f7f8fa',
       webPreferences: {
@@ -529,6 +532,7 @@ if (ownsLock)
     if (process.env.STICKER_CONNECTOR_SMOKE) {
       await require('./connector-smoke.cjs')({ app, win, lib, connectors, snapshot });
     }
+    if (process.env.STICKER_GALLERY_SMOKE) await require('./desktop-smoke.cjs')({ app, win, lib });
     if (process.env.STICKER_SMOKE) {
       await require('./smoke.cjs')({ app, win, lib, snapshot, used, showPanel, fileFor, native });
     }

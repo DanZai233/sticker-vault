@@ -17,7 +17,8 @@
     "test:platform-ui": "electron scripts/test-platform-ui.cjs",
     "prepare:ocr": "node scripts/prepare-ocr.cjs",
     "test:ocr-engine": "electron scripts/test-ocr-engine.cjs",
-    "test:backup-engine": "electron scripts/test-backup-engine.cjs"
+    "test:backup-engine": "electron scripts/test-backup-engine.cjs",
+    "test:desktop": "node scripts/test-desktop.cjs"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",

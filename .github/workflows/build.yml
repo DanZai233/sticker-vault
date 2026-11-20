@@ -47,6 +47,12 @@ jobs:
       - name: Portable backup and manual sync integration (Linux)
         if: matrix.platform == 'linux'
         run: xvfb-run -a ./node_modules/.bin/electron --no-sandbox scripts/test-backup-engine.cjs
+      - name: Desktop IPC and recoverable trash flow (Windows and macOS)
+        if: matrix.platform != 'linux'
+        run: npm run test:desktop
+      - name: Desktop IPC and recoverable trash flow (Linux)
+        if: matrix.platform == 'linux'
+        run: xvfb-run -a npm run test:desktop
       - name: Prepare verified platform helper
         run: node scripts/prepare-helper.cjs ${{ matrix.platform }} ${{ matrix.arch }}
       - name: Verify Windows helper starts

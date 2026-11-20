@@ -174,6 +174,7 @@ npm start
 
 ```sh
 npm run prepare:ocr          # 准备随包附带的离线中英文模型
+npm run test:desktop         # 独立临时素材库验证真实 IPC、回收站与诊断
 npm run test:backup-engine   # Electron 内完整备份与本机 WebDAV 协议集成
 npm run test:ocr-engine      # 真实 OCR 引擎集成验证（不读取个人素材）
 npm run test:platform-ui     # 平台设置与快捷面板回归
