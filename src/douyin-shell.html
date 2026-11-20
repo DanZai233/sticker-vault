@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'"
+    />
+    <title>抖音收藏导入</title>
+    <link rel="stylesheet" href="douyin-shell.css" />
+  </head>
+  <body>
+    <header>
+      <div class="row">
+        <strong>抖音收藏导入</strong>
+        <nav>
+          <button data-action="refresh">刷新页面</button
+          ><button data-action="reset">重置登录会话</button
+          ><button data-action="browser">在系统浏览器检查登录 ↗</button>
+        </nav>
+      </div>
+      <p id="status" role="status">正在打开抖音官网…</p>
+      <p class="help">
+        登录后打开私信 →
+        收藏表情，滚动加载。系统浏览器仅用于检查登录，不会自动采集。官网若限制内置窗口登录，目前无法保证导入。
+      </p>
+    </header>
+    <script src="douyin-shell.js"></script>
+  </body>
+</html>

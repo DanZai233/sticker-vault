@@ -1,7 +1,7 @@
 {
   "name": "sticker-vault",
   "productName": "表情仓",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "本地表情素材管理器",
   "main": "src/main.cjs",
   "scripts": {
@@ -18,7 +18,8 @@
     "prepare:ocr": "node scripts/prepare-ocr.cjs",
     "test:ocr-engine": "electron scripts/test-ocr-engine.cjs",
     "test:backup-engine": "electron scripts/test-backup-engine.cjs",
-    "test:desktop": "node scripts/test-desktop.cjs"
+    "test:desktop": "node scripts/test-desktop.cjs",
+    "test:douyin-window": "electron scripts/test-douyin-window.cjs"
   },
   "devDependencies": {
     "@electron/packager": "^20.3.0",
