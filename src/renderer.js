@@ -98,6 +98,11 @@ function render({ reset = false } = {}) {
   $('#select-mode').textContent = selecting ? '正在多选' : '多选';
   $('#trash-total').textContent = (state.trash || []).length;
   $('#trash-tools').hidden = filter !== 'trash';
+  $('#restore-all').disabled = !(state.trash || []).length;
+  $('#discard-all').disabled = !(state.trash || []).length;
+  $('#empty')
+    .querySelectorAll('button,small')
+    .forEach((node) => (node.hidden = filter === 'trash'));
   $('#bulk-restore').hidden = filter !== 'trash';
   $('#bulk-remove').textContent = filter === 'trash' ? '交给系统废纸篓' : '移到回收站';
   $('#select-mode').textContent = selecting ? '正在多选' : '多选';
@@ -185,7 +190,8 @@ function patchCard(card, value) {
     info = card.querySelector('.card-info');
   card.classList.toggle('selected', selected.has(item.id));
   surface.setAttribute('aria-label', item.name + (item.animated ? '，动图' : ''));
-  surface.setAttribute('aria-pressed', selected.has(item.id));
+  if (selecting) surface.setAttribute('aria-pressed', selected.has(item.id));
+  else surface.removeAttribute('aria-pressed');
   surface.draggable = !selecting;
   surface.title = filter === 'trash' ? '查看原件与恢复选项' : '单击复制原文件 · 双击或右键管理';
   img.alt = item.name;
@@ -809,6 +815,10 @@ api.onTransferUpdate((update) => {
 let lastReportId = null,
   currentReport = null;
 function renderReports() {
+  $('#diagnostic-rows').hidden = !currentReport;
+  $('#report-heading').hidden = !currentReport;
+  $('#report-filter').disabled = !currentReport;
+  $('#report-search').disabled = !currentReport;
   const history = $('#diagnostic-history'),
     summaries = state.importReports || [],
     signature = JSON.stringify(summaries.map((r) => [r.id, r.createdAt]));

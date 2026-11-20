@@ -817,3 +817,8 @@ h3 {
   padding: 6px 9px;
   font-size: 11px;
 }
+
+aside {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

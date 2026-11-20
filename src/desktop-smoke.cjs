@@ -5,6 +5,10 @@ module.exports = async ({ app, win, lib }) => {
   const js = (source) => win.webContents.executeJavaScript(source);
   try {
     await js('new Promise(resolve=>setTimeout(resolve,60))');
+    await js(`document.querySelector('[data-filter="trash"]').click()`);
+    assert.equal(await js('document.querySelector("#empty .import").hidden'), true);
+    assert.equal(await js('document.querySelector("#restore-all").disabled'), true);
+    await js(`document.querySelector('[data-filter="all"]').click()`);
     const input = process.env.STICKER_FIXTURE;
     await js('window.vault.importFiles(' + JSON.stringify([input]) + ')');
     await js('new Promise(resolve=>setTimeout(resolve,40))');
