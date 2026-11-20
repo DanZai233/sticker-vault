@@ -59,6 +59,8 @@ jobs:
       - name: Douyin passive collection window (Linux)
         if: matrix.platform == 'linux'
         run: xvfb-run -a ./node_modules/.bin/electron --no-sandbox scripts/test-douyin-window.cjs
+      - name: Dedicated browser collection fixture (when browser installed)
+        run: node scripts/test-douyin-browser.cjs
       - name: Prepare verified platform helper
         run: node scripts/prepare-helper.cjs ${{ matrix.platform }} ${{ matrix.arch }}
       - name: Verify Windows helper starts

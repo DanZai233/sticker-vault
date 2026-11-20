@@ -552,6 +552,7 @@ app.on('activate', () => {
 });
 app.on('before-quit', () => {
   quitting = true;
+  douyin?.close();
   transfers?.cancel();
   ocr?.stop();
   imageExtractor?.stop();

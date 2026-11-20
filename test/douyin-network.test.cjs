@@ -133,3 +133,35 @@ test('closing collector ignores late response and clears listeners', async () =>
   assert.deepEqual(seen, []);
   assert.equal(f.debug.listenerCount('message'), 0);
 });
+const { browserCandidates, DebugConnection } = require('../src/douyin-browser.cjs');
+test('dedicated browser discovery covers Chrome and Edge on all platforms without personal profiles', () => {
+  assert.ok(browserCandidates('darwin').some((p) => p.endsWith('/Google Chrome')));
+  const windows = browserCandidates('win32', {
+    PROGRAMFILES: 'D:\\Apps',
+    LOCALAPPDATA: 'C:\\Users\\user\\AppData\\Local',
+  });
+  assert.ok(windows.includes('D:\\Apps\\Google\\Chrome\\Application\\chrome.exe'));
+  assert.ok(windows.some((p) => p.endsWith('msedge.exe')));
+  assert.ok(browserCandidates('linux').includes('/usr/bin/chromium'));
+});
+test('browser debug connection matches replies and cancels pending calls on disconnect', async () => {
+  const socket = new EventTarget();
+  socket.readyState = 1;
+  const sent = [];
+  socket.send = (raw) => sent.push(JSON.parse(raw));
+  socket.close = () => {
+    socket.readyState = 3;
+    socket.dispatchEvent(new Event('close'));
+  };
+  const debug = new DebugConnection(socket);
+  const call = debug.sendCommand('Network.getResponseBody', { requestId: 'collection' });
+  const reply = new Event('message');
+  reply.data = JSON.stringify({ id: sent[0].id, result: { body: '{}' } });
+  socket.dispatchEvent(reply);
+  assert.deepEqual(await call, { body: '{}' });
+  const pending = debug.sendCommand('Network.enable');
+  debug.detach();
+  await assert.rejects(pending, /断开/);
+  assert.equal(debug.pending.size, 0);
+  await assert.rejects(debug.sendCommand('Page.enable'), /断开/);
+});

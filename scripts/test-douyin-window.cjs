@@ -74,7 +74,7 @@ app.whenReady().then(async () => {
     const shellState = await connector.win.webContents.executeJavaScript(
       `({buttons: document.querySelectorAll('button').length, vault: typeof window.vault, toolbar: typeof window.douyinWindow})`,
     );
-    assert.deepEqual(shellState, { buttons: 3, vault: 'undefined', toolbar: 'object' });
+    assert.deepEqual(shellState, { buttons: 4, vault: 'undefined', toolbar: 'object' });
     connector.close();
     await delay(100);
     assert.ok(wc.isDestroyed());

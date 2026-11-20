@@ -15,6 +15,7 @@
       <div class="row">
         <strong>抖音收藏导入</strong>
         <nav>
+          <button data-action="collect-browser">用 Chrome / Edge 采集</button>
           <button data-action="refresh">刷新页面</button
           ><button data-action="reset">重置登录会话</button
           ><button data-action="browser">在系统浏览器检查登录 ↗</button>
@@ -23,7 +24,8 @@
       <p id="status" role="status">正在打开抖音官网…</p>
       <p class="help">
         登录后打开私信 →
-        收藏表情，滚动加载。系统浏览器仅用于检查登录，不会自动采集。官网若限制内置窗口登录，目前无法保证导入。
+        收藏表情，滚动加载。系统浏览器仅用于检查登录，不会自动采集。内置登录失败时，请用 Chrome /
+        Edge 采集；独立资料目录需重新登录。
       </p>
     </header>
     <script src="douyin-shell.js"></script>

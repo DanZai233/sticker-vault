@@ -3,6 +3,7 @@ const fs = require('node:fs/promises');
 const path = require('node:path');
 const { collectedStickers, downloadSticker } = require('./connectors.cjs');
 const { observeCollections, trustedNavigation } = require('./douyin-network.cjs');
+const { openBrowserCollector } = require('./douyin-browser.cjs');
 const HOME = 'https://www.douyin.com/';
 const BAR_HEIGHT = 118;
 class DouyinConnector {
@@ -13,6 +14,7 @@ class DouyinConnector {
       const win = this.win;
       if (!win || win.isDestroyed() || event.sender !== win.webContents) return;
       const wc = this.view.webContents;
+      if (action === 'collect-browser') return this.openBrowser();
       if (action === 'refresh') return wc.reload();
       if (action === 'browser') return shell.openExternal(HOME);
       if (action !== 'reset') return;
@@ -115,6 +117,8 @@ class DouyinConnector {
     let stop = () => {};
     win.on('closed', () => {
       clearTimeout(timer);
+      this.browserController?.abort();
+      this.browser?.close();
       stop();
       for (const child of children) if (!child.isDestroyed()) child.destroy();
       if (!wc.isDestroyed()) wc.close();
@@ -180,6 +184,68 @@ class DouyinConnector {
     await win.loadFile(path.join(__dirname, 'douyin-shell.html'));
     wc.loadURL(HOME).catch(() => {});
   }
+  enqueue(data) {
+    if (!this.c.lib.data.connectors.douyin?.enabled) return;
+    this.queue = this.queue
+      .then(() => this.consume(data))
+      .catch(async () => {
+        this.c.status('douyin', {
+          status: 'error',
+          message: '读取收藏列表失败，请重新打开收藏表情面板。',
+        });
+        await this.c.persist();
+      });
+  }
+  async openBrowser() {
+    if (this.browser) return this.browser.focus();
+    if (this.browserOpening) return this.browserOpening;
+    const c = this.c;
+    this.browserController = new AbortController();
+    this.browserOpening = (async () => {
+      try {
+        c.status('douyin', {
+          enabled: true,
+          status: 'waiting',
+          message: '正在打开独立 Chrome / Edge 采集窗口…',
+        });
+        await c.persist();
+        this.browser = await openBrowserCollector({
+          profile: path.join(c.lib.root, 'connector-cache/douyin-browser'),
+          signal: this.browserController.signal,
+          onCollection: (data) => this.enqueue(data),
+          onError: () => {
+            c.status('douyin', {
+              status: 'error',
+              message: '独立浏览器采集连接已断开，请关闭并重新打开采集浏览器。',
+            });
+            c.persist().catch(() => {});
+          },
+          onClose: () => {
+            this.browser = null;
+            if (!c.lib.data.connectors.douyin?.enabled) return;
+            c.status('douyin', {
+              status: 'waiting',
+              message: '独立采集浏览器已关闭。再次打开后可继续收集。',
+            });
+            c.persist().catch(() => {});
+          },
+        });
+        c.status('douyin', {
+          status: 'waiting',
+          message:
+            '请在独立 Chrome / Edge 窗口登录，打开消息中的收藏表情面板并滚动。该窗口正在监听收藏响应；登录资料与日常浏览器分开保存。',
+        });
+        await c.persist();
+      } catch (error) {
+        c.status('douyin', { status: 'error', message: error.message });
+        await c.persist();
+        throw error;
+      } finally {
+        this.browserOpening = null;
+      }
+    })();
+    return this.browserOpening;
+  }
   async consume(data) {
     const c = this.c;
     if (!c.lib.data.connectors.douyin?.enabled) return;
@@ -223,6 +289,8 @@ class DouyinConnector {
   }
   close() {
     if (this.win && !this.win.isDestroyed()) this.win.close();
+    this.browserController?.abort();
+    this.browser?.close();
   }
 }
 module.exports = { DouyinConnector };
