@@ -143,6 +143,10 @@ async function openBrowserCollector({
     closed = false,
     debug,
     stop = () => {};
+  const finished = new Promise((resolve) => {
+    child.once('exit', resolve);
+    child.once('error', resolve);
+  });
   child.once('error', () => {
     exited = true;
   });
@@ -153,12 +157,13 @@ async function openBrowserCollector({
   const close = () => {
     process.removeListener('exit', close);
     signal?.removeEventListener('abort', close);
-    if (closed) return;
+    if (closed) return finished;
     closed = true;
     stop();
     // This process owns only the isolated profile; never terminate the user's normal browser.
     child.kill();
     onClose?.();
+    return finished;
   };
   process.once('exit', close);
   signal?.addEventListener('abort', close, { once: true });
@@ -188,6 +193,9 @@ async function openBrowserCollector({
     )
       throw Error('采集浏览器地址校验失败');
     debug = new DebugConnection(await connectSocket(ws.href));
+    // On macOS closing the last window can leave the browser process alive.
+    // A dead page target must release our handle so the user can reopen it.
+    debug.once('detach', close);
     const contents = new EventEmitter();
     contents.debugger = debug;
     stop = await observeCollections(contents, onCollection, onError);

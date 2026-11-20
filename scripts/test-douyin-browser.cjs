@@ -39,28 +39,66 @@ const { browserCandidates, openBrowserCollector } = require('../src/douyin-brows
             requestId: p.requestId,
             responseCode: 200,
             responseHeaders: [
-              { name: 'Content-Type', value: 'application/json' },
+              {
+                name: 'Content-Type',
+                value: p.request.url.includes('/aggregation') ? 'application/json' : 'text/html',
+              },
               { name: 'Access-Control-Allow-Origin', value: '*' },
             ],
-            body: Buffer.from(JSON.stringify(fixture)).toString('base64'),
+            body: Buffer.from(
+              p.request.url.includes('/aggregation')
+                ? JSON.stringify(fixture)
+                : '<!doctype html><title>Offline browser fixture</title><body>Fixture</body>',
+            ).toString('base64'),
           })
           .catch(() => {});
     });
     await debug.sendCommand('Fetch.enable', {
       patterns: [{ urlPattern: 'https://www.douyin.com/*', requestStage: 'Request' }],
     });
+    const loaded = new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(Error('fixture navigation timeout')), 10000);
+      const listener = (_, method) => {
+        if (method === 'Page.loadEventFired') {
+          clearTimeout(timer);
+          debug.removeListener('message', listener);
+          resolve();
+        }
+      };
+      debug.on('message', listener);
+    });
+    await debug.sendCommand('Page.navigate', { url: 'https://www.douyin.com/' });
+    await loaded;
     const native = await debug.sendCommand('Runtime.evaluate', {
       expression: `Function.prototype.toString.call(fetch).includes('[native code]')`,
     });
     assert.equal(native.result.value, true);
-    await debug.sendCommand('Runtime.evaluate', {
+    const fetched = await debug.sendCommand('Runtime.evaluate', {
       expression: `fetch('https://www.douyin.com/aweme/v1/web/im/resource/list/aggregation/?scenes=CUSTOM_STICKER_PAGE').then(r=>r.json())`,
       awaitPromise: true,
     });
+    assert.equal(fetched.exceptionDetails, undefined, 'offline collection request succeeds');
     for (let i = 0; i < 100 && !seen.length; i++) await new Promise((r) => setTimeout(r, 50));
     assert.deepEqual(seen, [fixture]);
     assert.deepEqual(errors, []);
-    collector.close();
+    let disconnected = false;
+    debug.once('detach', () => {
+      disconnected = true;
+    });
+    await debug.sendCommand('Page.close').catch(() => {});
+    for (let i = 0; i < 100 && !disconnected; i++) await new Promise((r) => setTimeout(r, 50));
+    assert.ok(disconnected, 'closing page disconnects collection');
+    await collector.close();
+    collector = await openBrowserCollector({
+      profile,
+      executable,
+      extraArgs: ['--headless=new'],
+      initialURL: 'about:blank',
+      onCollection: () => {},
+      onError: () => {},
+    });
+    await collector.focus();
+    await collector.close();
     console.log(
       'DOUYIN_BROWSER_PASS: real dedicated Chromium profile, native fetch, captured fixture, cleanup',
     );

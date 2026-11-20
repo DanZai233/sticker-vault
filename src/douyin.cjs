@@ -163,6 +163,7 @@ class DouyinConnector {
     }
     wc.on('did-start-loading', () => {
       clearTimeout(timer);
+      if (this.browser || this.browserOpening) return;
       notify('正在加载抖音官网…');
       timer = setTimeout(
         () => notify('网页加载较慢。可刷新重试，或在系统浏览器检查官网能否登录。'),
@@ -171,6 +172,7 @@ class DouyinConnector {
     });
     wc.on('did-stop-loading', () => {
       clearTimeout(timer);
+      if (this.browser || this.browserOpening) return;
       notify('请先登录，再打开私信中的收藏表情面板。若扫码、验证码均失败，请重置会话后重试。');
     });
     wc.on('did-fail-load', (_, code, description, url, main) => {
@@ -197,7 +199,15 @@ class DouyinConnector {
       });
   }
   async openBrowser() {
-    if (this.browser) return this.browser.focus();
+    if (this.browser) {
+      const browser = this.browser;
+      try {
+        return await browser.focus();
+      } catch {
+        await browser.close();
+        this.browser = null;
+      }
+    }
     if (this.browserOpening) return this.browserOpening;
     const c = this.c;
     this.browserController = new AbortController();
