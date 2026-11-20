@@ -75,9 +75,26 @@ app.whenReady().then(async () => {
       `({buttons: document.querySelectorAll('button').length, vault: typeof window.vault, toolbar: typeof window.douyinWindow})`,
     );
     assert.deepEqual(shellState, { buttons: 4, vault: 'undefined', toolbar: 'object' });
-    connector.close();
+    let browserClosed = 0;
+    connector.browser = {
+      close() {
+        browserClosed++;
+      },
+    };
+    connector.win.close();
     await delay(100);
     assert.ok(wc.isDestroyed());
+    assert.equal(browserClosed, 0, 'closing embedded toolbar preserves dedicated browser');
+    connector.close();
+    assert.equal(browserClosed, 1, 'explicit disable/quit closes dedicated browser');
+    connector.browser = null;
+    c.lib.data.connectors.douyin.browserMode = 'external';
+    let reopened = 0;
+    connector.openBrowser = async () => {
+      reopened++;
+    };
+    await connector.open();
+    assert.equal(reopened, 1, 'remembered browser mode reopens dedicated browser directly');
     clearTimeout(watchdog);
     console.log(
       'DOUYIN_WINDOW_PASS: native fetch/XHR, isolated toolbar, passive collection, no login-body capture, close cleanup',

@@ -36,6 +36,7 @@ class DouyinConnector {
   }
   async open() {
     const c = this.c;
+    if (c.lib.data.connectors.douyin?.browserMode === 'external') return this.openBrowser();
     c.status('douyin', {
       enabled: true,
       status: 'waiting',
@@ -117,13 +118,12 @@ class DouyinConnector {
     let stop = () => {};
     win.on('closed', () => {
       clearTimeout(timer);
-      this.browserController?.abort();
-      this.browser?.close();
       stop();
       for (const child of children) if (!child.isDestroyed()) child.destroy();
       if (!wc.isDestroyed()) wc.close();
       this.win = null;
       this.view = null;
+      if (this.browser || this.browserOpening) return;
       if (!c.lib.data.connectors.douyin?.enabled) return;
       c.status('douyin', {
         status: 'waiting',
@@ -241,6 +241,7 @@ class DouyinConnector {
           },
         });
         c.status('douyin', {
+          browserMode: 'external',
           status: 'waiting',
           message:
             '请在独立 Chrome / Edge 窗口登录，打开消息中的收藏表情面板并滚动。该窗口正在监听收藏响应；登录资料与日常浏览器分开保存。',
